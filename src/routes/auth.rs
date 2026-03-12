@@ -1,22 +1,55 @@
-use std::any::Any;
-use std::arch::x86_64::_mm_pause;
 use std::collections::{HashMap, HashSet};
-use axum::{Json, Router, routing::get, extract::Query};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, routing::get, extract::Query, debug_handler, Form};
 use serde_json::{json, Value};
-use crate::models::authorization_request::{AuthCodeQueryParams, AuthorizationCodeResponse};
-use jsonwebtoken::{Algorithm, DecodingKey, TokenData, Validation, decode};
-use jsonwebtoken::Algorithm::RS256;
-use jsonwebtoken::dangerous::insecure_decode;
-use jsonwebtoken::jwk::{Jwk, JwkSet};
+// use crate::models::authorization_request::{AuthCodeQueryParams, AuthorizationCodeResponse, AuthorizeByIdpRequest, Idp, TmsResponse};
+use reqwest::StatusCode;
+use crate::db::idp_dao::{Idp, get_idps};
+use crate::models::idp::IdpResponse;
+use crate::models::responses::{Entity, HttpResponse, TmsApiError, TmsApiErrorResult, TmsApiResponse};
 
 pub fn router() -> Router {
     return Router::new()
-        .route("/oauth2/callback", get(callback_handler))
-        .route("/oauth2/decode", get(decode_jwt));
+        /*
+        .route("/oauth2/callback", get(get_callback_handler))
+        */
+        .route("/oauth2/idp", get(get_idp_handler));
+        /*
+        .route("/oauth2/authorize", get(get_authorize_handler))
+        .route("/oauth2/decode", get(decode_jwt_working));
+         */
+//        .route("/oauth2/testing", get(get_testing_handler));
+}
+// pub async fn get_testing_handler(query_params:Query<HashMap<String, String>>) -> (StatusCode, Json<Value>) {
+//     if(query_params.get("error").unwrap().eq("true")) {
+//         let idps = get_idps().await.unwrap();
+//         return (StatusCode::BAD_REQUEST, Json(serde_json::to_value(idps).unwrap()))
+//     }
+//     (StatusCode::OK, Json(json!({"hello":"world"})))
+// }
+pub async fn get_idp_handler() -> HttpResponse<HashSet<IdpResponse>> {
+    let mut idp_result:HashSet<IdpResponse> = HashSet::new();
+    match get_idps().await {
+        Ok(idps) => {
+            idps.iter().for_each(| idp | {
+                idp_result.insert(idp.clone().into());
+            });
+            HttpResponse {
+                status: StatusCode::OK,
+                entity: Entity::Success(Json(idp_result)),
+            }
+        },
+
+        Err(err) => HttpResponse {
+            status: StatusCode::NOT_FOUND,
+            entity: Entity::Error(Json(TmsApiErrorResult {
+                message: format!("{}", err)
+            }))
+        },
+    }
 }
 
-pub async fn callback_handler(query_params:Query<AuthCodeQueryParams>) -> Json<Value> {
+/*
+pub async fn get_callback_handler(query_params:Query<AuthCodeQueryParams>) -> Json<Value> {
     println!("code: {:?}", query_params.0.code);
     let params = [("foo", "bar"), ("baz", "quux")];
 
@@ -36,8 +69,20 @@ pub async fn callback_handler(query_params:Query<AuthCodeQueryParams>) -> Json<V
     let response_object:AuthorizationCodeResponse = serde_json::from_str(text.unwrap().as_str()).unwrap();
 
     println!("response: {:#?}", response_object);
-
     Json(json!({ "data": 42}))
+}
+#[debug_handler]
+pub async fn get_idp_handler() -> Result<Json<Value>, Error> {
+    let idps = get_idps().await;
+    match idps {
+        Ok(idps) => Ok(Json(idps)),
+        Err(err) => Err(Error::NotFound)
+    }
+}
+
+pub async fn get_authorize_handler(form_data:Form<AuthorizeByIdpRequest>) -> (StatusCode, Json<Value>) {
+    let idp = get_idp_by_id(&form_data.idp_id);
+    (StatusCode::OK, Json(serde_json::to_value(idp).unwrap()))
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
@@ -59,7 +104,8 @@ pub struct Claims {
     nbf: i64,
     sub: String
 }
-pub async fn decode_jwt() -> Json<Value> {
+
+pub async fn decode_jwt_working() -> Json<Value> {
 
 //    let token = "eyJraWQiOiIyNDRCMjM1RjZCMjhFMzQxMDhEMTAxRUFDNzM2MkM0RSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJodHRwOi8vY2lsb2dvbi5vcmcvc2VydmVyRS91c2Vycy8yMjg5MTciLCJpZHBfbmFtZSI6IlVuaXZlcnNpdHkgb2YgVGV4YXMgYXQgQXVzdGluIiwiZXBwbiI6ImRsdjY0NEB1dGV4YXMuZWR1IiwiaXNzIjoiaHR0cHM6Ly9jaWxvZ29uLm9yZyIsImdpdmVuX25hbWUiOiJEYW4iLCJhY3IiOiJodHRwczovL2lkbS51dHN5c3RlbS5lZHUvYXV0aG5jb250ZXh0L3R3b2ZhY3RvcmJhc2ljIiwiYXVkIjoiY2lsb2dvbjovY2xpZW50X2lkLzNkMzhiNTNjOTcwOTQ4OTEzNmM5YjY4YzhmNzY5Yzk5IiwibmJmIjoxNzczMDk3ODYwLCJpZHAiOiJodHRwczovL2VudGVycHJpc2UubG9naW4udXRleGFzLmVkdS9pZHAvc2hpYmJvbGV0aCIsImFmZmlsaWF0aW9uIjoic3RhZmZAdXRleGFzLmVkdTttZW1iZXJAdXRleGFzLmVkdSIsImF1dGhfdGltZSI6MTc3Mjc0NTY0NCwibmFtZSI6IkRhbiBWZXJub24iLCJleHAiOjE3NzMwOTg3NjAsImZhbWlseV9uYW1lIjoiVmVybm9uIiwiaWF0IjoxNzczMDk3ODYwLCJqdGkiOiJodHRwczovL2NpbG9nb24ub3JnL29hdXRoMi9pZFRva2VuLzcxODdjNzg3ZmM0YzZlYTZmNDRhZmJhM2YxNzM4ZmIvMTc3Mjc0OTc0MDQzMyJ9.aSEGULt1fgVtUW8DB8mGeE2dmK9cTU2q4NSAMssqxfSYrw4rwrGop97gd1l3tDiSI4hCpTAmZHs_43GK5No7DqRznsZj-OqorgWIxcoi4rS29aizXedse6ltI-2ozc3IrLHLBnD43GNbwaAt-XCWShTBVmA7B_YdsmZzzdX2B8RLSrjuJeGetzPD7Jsv1ZsuwGj3m4TrvvTbDec1-FsCV1E8C-5scUsjdBxMUiZxvCgEsuqRpSjKoFms-My3eXJNooU5SgERcgxVELED1PuFUbtYHnWOM1dajaYrcEuCCrj6ZitfFQljCOcXZM9s74EA2trnMlq04QNSvItpp8G5UA";
     let token = "eyJraWQiOiIyNDRCMjM1RjZCMjhFMzQxMDhEMTAxRUFDNzM2MkM0RSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJodHRwOi8vY2lsb2dvbi5vcmcvc2VydmVyRS91c2Vycy8yMjg5MTciLCJpZHBfbmFtZSI6IlVuaXZlcnNpdHkgb2YgVGV4YXMgYXQgQXVzdGluIiwiZXBwbiI6ImRsdjY0NEB1dGV4YXMuZWR1IiwiaXNzIjoiaHR0cHM6Ly9jaWxvZ29uLm9yZyIsImdpdmVuX25hbWUiOiJEYW4iLCJhY3IiOiJodHRwczovL2lkbS51dHN5c3RlbS5lZHUvYXV0aG5jb250ZXh0L3R3b2ZhY3RvcmJhc2ljIiwiYXVkIjoiY2lsb2dvbjovY2xpZW50X2lkLzNkMzhiNTNjOTcwOTQ4OTEzNmM5YjY4YzhmNzY5Yzk5IiwibmJmIjoxNzczMTYxNDMzLCJpZHAiOiJodHRwczovL2VudGVycHJpc2UubG9naW4udXRleGFzLmVkdS9pZHAvc2hpYmJvbGV0aCIsImFmZmlsaWF0aW9uIjoic3RhZmZAdXRleGFzLmVkdTttZW1iZXJAdXRleGFzLmVkdSIsImF1dGhfdGltZSI6MTc3Mjc0NTY0NCwibmFtZSI6IkRhbiBWZXJub24iLCJleHAiOjE3NzMxNjIzMzMsImZhbWlseV9uYW1lIjoiVmVybm9uIiwiaWF0IjoxNzczMTYxNDMzLCJqdGkiOiJodHRwczovL2NpbG9nb24ub3JnL29hdXRoMi9pZFRva2VuLzcxODdjNzg3ZmM0YzZlYTZmNDRhZmJhM2YxNzM4ZmIvMTc3Mjc0OTc0MDQzMyJ9.IllyRSg_0c-zz2RCh4AQpc6fbcELgVksUd2_k-P9FBc_Qu2xscmk6o_FM8glspA9fcQny6quNZzie9yWwSlPEUVOQaDcpYN1FBXBu_IPmKTqj1nDnPD3IGpk7Z3b3X88VLPe-JTg8JrgJXMsG9Eei0k7y52yYvr7GgkqKZlcJ0woq7KNJxWVVj4z13JGq3L0cYJyxOglXYKrjbdcJV_8epkR5wzElbuoAbsQ_r8PLIl709XZiZbiKlANDAQu-6IYB7uI-QYT6Ep4Oic6JvXmD6Jmfh4s4kYH6b8lQwDD_VyFzjsajDYpJS-UXo3Eu6dc9KGYp1IAC83QmHhwJroqrA";
@@ -147,3 +193,4 @@ pub async fn decode_jwt() -> Json<Value> {
 
     value
 }
+ */

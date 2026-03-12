@@ -1,5 +1,6 @@
 mod routes;
 mod models;
+mod db;
 
 use axum::{
     routing::get,
