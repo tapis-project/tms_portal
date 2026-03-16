@@ -1,22 +1,44 @@
 use std::collections::{HashMap, HashSet};
-use axum::{Json, Router, routing::get, extract::Query, debug_handler, Form};
-use serde_json::{json, Value};
-// use crate::models::authorization_request::{AuthCodeQueryParams, AuthorizationCodeResponse, AuthorizeByIdpRequest, Idp, TmsResponse};
+use std::time::SystemTime;
+use axum::{Json, Router, routing::get, extract::Query, Form};
+use axum::handler::Handler;
+use axum_extra::extract::cookie::{Cookie, Key};
+use axum_extra::extract::PrivateCookieJar;
 use reqwest::StatusCode;
-use crate::db::idp_dao::{Idp, get_idps};
+use url::Url;
+use crate::AppState;
+use crate::db::idp_dao::{get_idps, get_idp_by_id};
+use crate::models::authorize::{AuthCodeQueryParams, AuthorizationCodeResponse, AuthorizeByIdpRequest};
 use crate::models::idp::IdpResponse;
-use crate::models::responses::{Entity, HttpResponse, TmsApiError, TmsApiErrorResult, TmsApiResponse};
+use crate::models::oidc_state::{OAuthState};
+use crate::models::responses::{Entity, HttpResponse, TmsApiErrorResult};
+use crate::services::oauth_service::decode_jwt;
+
+// impl FromRef<AppState> for Key {
+//     fn from_ref(state: &AppState) -> Self {
+//         state.key.clone()
+//     }
+// }
 
 pub fn router() -> Router {
+    let state = AppState {
+        // Generate a secure key
+        //
+        // TODO:  You probably don't wanna generate a new one each time the app starts though
+        key: Key::generate(),
+    };
+
     return Router::new()
-        /*
         .route("/oauth2/callback", get(get_callback_handler))
-        */
-        .route("/oauth2/idp", get(get_idp_handler));
-        /*
+        .route("/oauth2/idp", get(get_idp_handler))
         .route("/oauth2/authorize", get(get_authorize_handler))
-        .route("/oauth2/decode", get(decode_jwt_working));
-         */
+        .route("/oauth2/get", get(oauth_get_secret))
+        .route("/oauth2/set", get(oauth_set_secret))
+        .with_state(state);
+
+    /*
+    .route("/oauth2/decode", get(decode_jwt_working));
+     */
 //        .route("/oauth2/testing", get(get_testing_handler));
 }
 // pub async fn get_testing_handler(query_params:Query<HashMap<String, String>>) -> (StatusCode, Json<Value>) {
@@ -33,26 +55,24 @@ pub async fn get_idp_handler() -> HttpResponse<HashSet<IdpResponse>> {
             idps.iter().for_each(| idp | {
                 idp_result.insert(idp.clone().into());
             });
-            HttpResponse {
-                status: StatusCode::OK,
-                entity: Entity::Success(Json(idp_result)),
-            }
+
+            HttpResponse::from(
+                (StatusCode::OK, Entity::Success(Json(idp_result)))
+            )
         },
 
-        Err(err) => HttpResponse {
-            status: StatusCode::NOT_FOUND,
-            entity: Entity::Error(Json(TmsApiErrorResult {
+        Err(err) => {
+            let error = TmsApiErrorResult {
                 message: format!("{}", err)
-            }))
-        },
+            };
+
+            HttpResponse::from((StatusCode::INTERNAL_SERVER_ERROR, Entity::from(error)))
+        }
     }
 }
 
-/*
-pub async fn get_callback_handler(query_params:Query<AuthCodeQueryParams>) -> Json<Value> {
+pub async fn get_callback_handler(jar: PrivateCookieJar, query_params:Query<AuthCodeQueryParams>) -> HttpResponse<AuthorizationCodeResponse> {
     println!("code: {:?}", query_params.0.code);
-    let params = [("foo", "bar"), ("baz", "quux")];
-
     let params = [
         ("grant_type", "authorization_code"),
         ("client_id", "cilogon:/client_id/3d38b53c9709489136c9b68c8f769c99"),
@@ -60,17 +80,63 @@ pub async fn get_callback_handler(query_params:Query<AuthCodeQueryParams>) -> Js
         ("code", &query_params.0.code),
     ];
 
+    match jar.get("oauth2/idp_id") {
+        Some(idp_id_cookie) => {
+            println!("Request callback from provider: {:?}", idp_id_cookie.value());
+        },
+        None => {
+            println!("No cookies found!!");
+        }
+    };
+
+    let state_string = match &query_params.state {
+        Some(state_string) => state_string,
+        None => return HttpResponse::from((StatusCode::INTERNAL_SERVER_ERROR, Entity::from(TmsApiErrorResult {message: "Internal Server Error: unable to find state".to_string()})))
+    };
+    let state = match OAuthState::try_from(state_string) {
+        Ok(state) => state,
+        Err(err) => return HttpResponse::from( (StatusCode::INTERNAL_SERVER_ERROR, Entity::from(err)))
+    };
+
+    println!("state: {:?}", state);
+
+    // let state = match OAuthState::from(&query_params.state) {
+    //     Some(state) => state,
+    //     None => {
+    //         return HttpResponse::from((StatusCode::INTERNAL_SERVER_ERROR, "Unable to find state"));
+    //     }
+    // }
+
+    // TODO:   get url from somewhere - not hard coded
     let client = reqwest::Client::new();
     let response = client.post("https://cilogon.org/oauth2/token")
         .form(&params)
         .send()
         .await;
-    let text = response.unwrap().text().await;
-    let response_object:AuthorizationCodeResponse = serde_json::from_str(text.unwrap().as_str()).unwrap();
+    match response {
+        Ok(response) => {
+            let status_code = response.status();
+            let response_text = response.text().await.unwrap().clone();
+            let response_object:AuthorizationCodeResponse = serde_json::from_str(response_text.as_str()).unwrap();
+            decode_jwt(&response_object.id_token).await;
+            HttpResponse::from((status_code, Entity::Success(Json(response_object))))
+        }
 
-    println!("response: {:#?}", response_object);
-    Json(json!({ "data": 42}))
-}
+        Err(err) => {
+            let error = TmsApiErrorResult {
+                message: format!("{}", err)
+            };
+            HttpResponse::from((StatusCode::INTERNAL_SERVER_ERROR, Entity::from(error)))
+        }
+    }
+    //
+    // let statusCode = StatusCode::from(&response.unwrap().status());
+    // let text = response.unwrap().text().await.unwrap().clone();
+    // let response_object:AuthorizationCodeResponse = serde_json::from_str(text.as_str()).unwrap();
+    // HttpResponse::from((statusCode, Entity::Success(Json(response_object))))
+ }
+
+/*
 #[debug_handler]
 pub async fn get_idp_handler() -> Result<Json<Value>, Error> {
     let idps = get_idps().await;
@@ -79,12 +145,65 @@ pub async fn get_idp_handler() -> Result<Json<Value>, Error> {
         Err(err) => Err(Error::NotFound)
     }
 }
+*/
+pub async fn get_authorize_handler(jar: PrivateCookieJar, form_data:Form<AuthorizeByIdpRequest>) -> (PrivateCookieJar, HttpResponse<()>) {
+    let idp = get_idp_by_id(&form_data.idp_id).await;
+    // match idp {
+    //     Ok(idp) => {
+    //         let cookie=Cookie::build(("idp_id", &idp.id.clone()));
+    //     },
+    //     Err(err) => {
+    //     }
+    // }
+    match idp {
+        Ok(idp) => {
+            let oauth_state = OAuthState { idp_id: form_data.idp_id.clone(), exp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() + 300000 };
+//            let jws = oauth_state.encode_jws();
+//            println!("XXX: {:#?}", &jws);
+//            let decoded_jws = decode_jws(&jws.unwrap());
+//            println!("XXX: {:#?}", &decoded_jws);
 
-pub async fn get_authorize_handler(form_data:Form<AuthorizeByIdpRequest>) -> (StatusCode, Json<Value>) {
-    let idp = get_idp_by_id(&form_data.idp_id);
-    (StatusCode::OK, Json(serde_json::to_value(idp).unwrap()))
+            let encoded_state = match oauth_state.encode() {
+                Ok(state_string) => {
+                    println!("state: {:?}", state_string);
+                    state_string
+                },
+                Err(error) => {
+                    println!("error: {:?}", error);
+                    return (jar, HttpResponse::from( (StatusCode::INTERNAL_SERVER_ERROR, Entity::from(error)) ))
+                },
+            };
+
+            // TODO:  make a real nonce
+            let location = Url::parse_with_params(&idp.identity_redirect_url, [
+                ("response_type", "code"),
+                ("client_id", &idp.client_id),
+                ("redirect_uri","http://localhost:8080/oauth2/callback"),
+                ("scope", &idp.scope),
+                ("state", &encoded_state),
+                ("nonce", "TODO: Add a real nonce")
+            ]).unwrap();
+
+            let updated_jar = jar.add(("oauth2/idp_id", idp.id));
+
+            let mut headers = HashMap::new();
+            headers.insert("location".to_string(), location.to_string());
+            (updated_jar, HttpResponse::from((StatusCode::TEMPORARY_REDIRECT, headers)))
+        }
+
+        Err(err) => {
+            let error = TmsApiErrorResult {
+                message: format!("{}", err)
+            };
+
+            (jar, HttpResponse::from((StatusCode::BAD_REQUEST, Entity::from(error))))
+        }
+    }
 }
 
+
+
+/*
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Claims {
     acr: String,
@@ -194,3 +313,34 @@ pub async fn decode_jwt_working() -> Json<Value> {
     value
 }
  */
+async fn oauth_set_secret(
+    jar: PrivateCookieJar,
+) -> (PrivateCookieJar, HttpResponse<HashSet<IdpResponse>>) {
+    let updated_jar = jar.add(Cookie::new("secret", "secret-data"));
+
+    let mut idp_result:HashSet<IdpResponse> = HashSet::new();
+    match get_idps().await {
+        Ok(idps) => {
+            idps.iter().for_each(| idp | {
+                idp_result.insert(idp.clone().into());
+            });
+
+            (updated_jar, HttpResponse::from( (StatusCode::OK, Entity::Success(Json(idp_result)))) )
+        },
+
+        Err(err) => {
+            let error = TmsApiErrorResult {
+                message: format!("{}", err)
+            };
+
+            (updated_jar, HttpResponse::from((StatusCode::INTERNAL_SERVER_ERROR, Entity::from(error))) )
+        }
+    }}
+
+async fn oauth_get_secret(jar: PrivateCookieJar) -> String{
+    if let Some(data) = jar.get("secret") {
+        return "secret-data".to_owned();
+    } else {
+        return "Nothing found".to_owned();;
+    }
+}

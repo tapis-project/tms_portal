@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use serde::Serialize;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct Idp {
@@ -10,6 +9,7 @@ pub struct Idp {
     pub identity_redirect_url: String,
     pub oauth2_token_url: String,
     pub user_info_url: String,
+    pub scope: String,
 }
 pub async fn get_idps() -> Result<HashSet<Idp>, String> {
     let cilogon_idp = Idp {
@@ -20,7 +20,9 @@ pub async fn get_idps() -> Result<HashSet<Idp>, String> {
         identity_redirect_url: "https://cilogon.org/authorize".to_string(),
         oauth2_token_url:"https://cilogon.org/oauth2/token".to_string(),
         user_info_url:"https://cilogon.org/oauth2/userinfo".to_string(),
+        scope:"openid profile email org.cilogon.userinfo".to_string(),
     };
+
     let mut idps = HashSet::new();
     idps.insert(cilogon_idp);
     Ok(idps)
