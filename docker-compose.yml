@@ -1,0 +1,24 @@
+---
+version: "3"
+
+volumes:
+  tms-auth-postgres-16-data:
+
+networks:
+  rabbitmq_netwrk:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: tms_auth_postgres
+    labels:
+      name: tms_auth_postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: $PG_ADMIN_PASS
+    ports:
+      - $PG_PORT:5432
+    volumes:
+      - tms-auth-postgres-16-data:/var/lib/postgresql/data
+

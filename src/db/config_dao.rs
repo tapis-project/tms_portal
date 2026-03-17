@@ -1,4 +1,4 @@
-pub fn state_public_key() -> String {
+pub fn get_state_public_key() -> String {
     "-----BEGIN PUBLIC KEY-----
         MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAztiv4g36LrvgytSospsO
         Fs2Q+zHuTofqYqotM2+/y/6n0v1klX0jMeBvtlX2vwPlKQ74EmlaOWglPL3ZAxdp
@@ -11,7 +11,7 @@ pub fn state_public_key() -> String {
         .to_string()
 }
 
-pub fn state_private_key() -> String {
+pub fn get_state_private_key() -> String {
     "-----BEGIN PRIVATE KEY-----
         MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDO2K/iDfouu+DK
         1Kiymw4WzZD7Me5Oh+piqi0zb7/L/qfS/WSVfSMx4G+2Vfa/A+UpDvgSaVo5aCU8
@@ -42,13 +42,21 @@ pub fn state_private_key() -> String {
         -----END PRIVATE KEY-----"
         .to_string()
 }
-
-pub fn jwt_private_key() -> String {
-    // TODO: real key!!
-    state_private_key()
+pub fn get_state_cookie_path() -> String {
+    "oauth2/idp_cookie".to_string()
 }
-
-pub fn jwt_public_key() -> String {
+pub fn get_jwt_private_key() -> String {
     // TODO: real key!!
-    state_public_key()
+    get_state_private_key()
+}
+pub fn get_jwt_public_key() -> String {
+    // TODO: real key!!
+    get_state_public_key()
+}
+pub fn get_client_id() -> String {
+    "cilogon:/client_id/3d38b53c9709489136c9b68c8f769c99".to_string()
+}
+pub fn get_client_secret() -> String {
+    "_-9v-A023hVLquAlLjToWSQoF5XOwCKjG8i8QHtCN3K4c8fjF_ILSmf4ZekXafk0VC6q_T66WOntSUxgJLjN1Q"
+        .to_string()
 }
