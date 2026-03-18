@@ -17,72 +17,61 @@ where
     Error(Json<TmsApiErrorResult>),
     Success(Json<T>),
 }
-impl<T> From<TmsApiErrorResult> for Entity<T>
+
+pub struct TmsResponseBuilder<T>
 where
     T: Serialize,
 {
-    fn from(value: TmsApiErrorResult) -> Self {
-        Entity::Error(Json(value))
+    status_code: StatusCode,
+    entity: Option<Entity<T>>,
+    headers: Option<HashMap<String, String>>,
+}
+
+impl<T> TmsResponseBuilder<T>
+where
+    T: Serialize,
+{
+    pub fn entity(mut self, entity: Entity<T>) -> TmsResponseBuilder<T> {
+        self.entity = Some(entity);
+        self
+    }
+
+    pub fn headers(mut self, headers: HashMap<String, String>) -> TmsResponseBuilder<T> {
+        self.headers = Some(headers);
+        self
+    }
+
+    pub fn build(self) -> TmsResponse<T> {
+        TmsResponse {
+            status_code: self.status_code,
+            headers: self.headers,
+            entity: self.entity,
+        }
     }
 }
-impl<T> From<(StatusCode, Entity<T>)> for TmsHttpResponse<T>
+pub struct TmsResponse<T>
 where
     T: Serialize,
 {
-    fn from(value: (StatusCode, Entity<T>)) -> Self {
-        TmsHttpResponse {
-            status: value.0,
+    pub(crate) status_code: StatusCode,
+    pub(crate) entity: Option<Entity<T>>,
+    pub(crate) headers: Option<HashMap<String, String>>,
+}
+
+impl<T> TmsResponse<T>
+where
+    T: Serialize,
+{
+    pub fn builder(status_code: StatusCode) -> TmsResponseBuilder<T> {
+        TmsResponseBuilder {
+            status_code,
+            entity: None,
             headers: None,
-            entity: Some(value.1),
         }
     }
 }
 
-pub struct TmsHttpResponse<T>
-where
-    T: Serialize,
-{
-    pub status: StatusCode,
-    pub headers: Option<HashMap<String, String>>,
-    pub entity: Option<Entity<T>>,
-}
-impl<T> From<StatusCode> for TmsHttpResponse<T>
-where
-    T: Serialize,
-{
-    fn from(status: StatusCode) -> Self {
-        TmsHttpResponse {
-            status,
-            headers: None,
-            entity: None,
-        }
-    }
-}
-impl<T> From<(StatusCode, HashMap<String, String>, Entity<T>)> for TmsHttpResponse<T>
-where
-    T: Serialize,
-{
-    fn from(value: (StatusCode, HashMap<String, String>, Entity<T>)) -> Self {
-        TmsHttpResponse {
-            status: value.0,
-            headers: Some(value.1),
-            entity: Some(value.2),
-        }
-    }
-}
-impl<T> From<(StatusCode, HashMap<String, String>)> for TmsHttpResponse<T>
-where
-    T: Serialize,
-{
-    fn from(value: (StatusCode, HashMap<String, String>)) -> Self {
-        TmsHttpResponse {
-            status: value.0,
-            headers: Some(value.1),
-            entity: None,
-        }
-    }
-}
-impl<T> IntoResponse for TmsHttpResponse<T>
+impl<T> IntoResponse for TmsResponse<T>
 where
     T: Serialize,
 {
@@ -98,7 +87,7 @@ where
             Body::empty()
         };
 
-        let mut builder = Response::builder().status(self.status);
+        let mut builder = Response::builder().status(self.status_code);
 
         if self.headers.is_some() {
             for header in self.headers.unwrap().iter() {
@@ -109,6 +98,16 @@ where
         builder.body(body).unwrap()
     }
 }
+
+impl<T> From<TmsApiErrorResult> for Entity<T>
+where
+    T: Serialize,
+{
+    fn from(value: TmsApiErrorResult) -> Self {
+        Entity::Error(Json(value))
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct TokenResponse {
     pub token: String,
