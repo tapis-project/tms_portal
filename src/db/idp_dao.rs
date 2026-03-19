@@ -1,4 +1,5 @@
 use crate::models::tms_internal::TmsResult;
+use crate::models::tms_internal::TmsServiceError::{DatabaseError, InternalError};
 use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{query, PgPool, PgTransaction, Row};
 use std::collections::HashSet;
@@ -26,7 +27,7 @@ pub async fn get_idps<'a>(tx: &mut PgTransaction<'a>) -> TmsResult<HashSet<Idp>>
     )
     .fetch_all(&mut **tx)
     .await
-    .unwrap();
+    .map_err(|e| DatabaseError(e.to_string()))?;
 
     let idp_collection: Vec<Idp> = idp_query_result
         .iter()
@@ -49,12 +50,17 @@ pub async fn get_idps<'a>(tx: &mut PgTransaction<'a>) -> TmsResult<HashSet<Idp>>
 }
 
 pub async fn get_idp_by_id(pool: &PgPool, id: &String) -> TmsResult<Idp> {
-    let mut tx = pool.begin().await.unwrap();
-    let idps = get_idps(&mut tx).await.unwrap();
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| DatabaseError(e.to_string()))?;
+    let idps = get_idps(&mut tx).await?;
     let idp = idps
         .iter()
         .find(|idp| -> bool { idp.id.eq(id) })
-        .ok_or_else(|| format!("Could not find id: {}", id))?;
-    tx.commit().await.unwrap();
+        .ok_or_else(|| InternalError(format!("Could not find id: {}", id)))?;
+    tx.commit()
+        .await
+        .map_err(|e| DatabaseError(e.to_string()))?;
     Ok(idp.to_owned())
 }

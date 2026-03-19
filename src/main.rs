@@ -27,12 +27,6 @@ impl FromRef<AppState> for Key {
     }
 }
 
-// impl FromRef<AppState> for PgPool {
-//     fn from_ref(state: &AppState) -> Self {
-//         state.db_pool.clone()
-//     }
-// }
-
 #[tokio::main]
 async fn main() {
     // TODO: move this to some kind of runtime params thing

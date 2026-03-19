@@ -17,3 +17,5 @@ jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 
 url = "2.5.8"
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "time"] }
+thiserror = "2.0.18"
+anyhow = "1.0.102"

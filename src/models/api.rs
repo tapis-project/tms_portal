@@ -1,21 +1,37 @@
+use crate::models::api::Entity::ServiceError;
+use crate::models::tms_internal::TmsServiceError;
+use crate::models::tms_internal::TmsServiceError::{
+    BadRequest, DatabaseError, InternalError, Unauthorized,
+};
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use reqwest::StatusCode;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Serialize, Clone)]
-pub struct TmsApiErrorResult {
-    pub message: String,
+impl Display for TmsServiceError {
+    // TODO: this should not be needed at some point soon.
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", "An error has occurred!")
+    }
 }
+
 #[derive(Debug, Clone)]
 pub enum Entity<T>
 where
     T: Serialize,
 {
-    Error(Json<TmsApiErrorResult>),
-    Success(Json<T>),
+    ServiceError(TmsServiceError),
+    Success(T),
+}
+impl<T> From<TmsServiceError> for Entity<T>
+where
+    T: Serialize,
+{
+    fn from(value: TmsServiceError) -> Self {
+        ServiceError(value)
+    }
 }
 
 pub struct TmsResponseBuilder<T>
@@ -33,6 +49,11 @@ where
 {
     pub fn entity(mut self, entity: Entity<T>) -> TmsResponseBuilder<T> {
         self.entity = Some(entity);
+        self
+    }
+
+    pub fn entity_from(mut self, error: TmsServiceError) -> TmsResponseBuilder<T> {
+        self.entity = Some(Entity::from(error));
         self
     }
 
@@ -71,43 +92,60 @@ where
     }
 }
 
+impl IntoResponse for TmsServiceError {
+    fn into_response(self) -> Response {
+        match self {
+            InternalError(error) | DatabaseError(error) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, error).into_response()
+            }
+            BadRequest(error) => (StatusCode::BAD_REQUEST, error).into_response(),
+            Unauthorized(error) => (StatusCode::UNAUTHORIZED, error).into_response(),
+            NotFound => (StatusCode::NOT_FOUND, String::new()).into_response(),
+        }
+    }
+}
+
 impl<T> IntoResponse for TmsResponse<T>
 where
     T: Serialize,
 {
     fn into_response(self) -> Response {
-        let body = if self.entity.is_some() {
-            match self.entity.unwrap() {
-                Entity::Success(entity) => {
-                    Body::from(serde_json::ser::to_string(&entity.0).unwrap())
+        let body = match self.entity {
+            Some(Entity::Success(entity)) => {
+                if let Ok(json_string) = serde_json::ser::to_string(&entity) {
+                    Body::from(json_string)
+                } else {
+                    return internal_error_response("Unable to serialize entity");
                 }
-                Entity::Error(Json(error)) => Body::from(serde_json::to_string(&error).unwrap()),
             }
-        } else {
-            Body::empty()
+            Some(Entity::ServiceError(error)) => {
+                if let Ok(json_string) = serde_json::ser::to_string(&error) {
+                    Body::from(json_string)
+                } else {
+                    return internal_error_response("Unable to serialize entity");
+                }
+            }
+            None => Body::default(),
         };
 
         let mut builder = Response::builder().status(self.status_code);
 
-        if self.headers.is_some() {
-            for header in self.headers.unwrap().iter() {
-                builder = builder.header(header.0.as_str(), header.1.as_str());
+        if let Some(headers) = self.headers {
+            for (key, value) in headers.iter() {
+                builder = builder.header(key, value);
             }
         }
 
-        builder.body(body).unwrap()
+        if let Ok(response) = builder.body(body) {
+            response
+        } else {
+            internal_error_response("Unable to build response")
+        }
     }
 }
-
-impl<T> From<TmsApiErrorResult> for Entity<T>
-where
-    T: Serialize,
-{
-    fn from(value: TmsApiErrorResult) -> Self {
-        Entity::Error(Json(value))
-    }
+pub fn internal_error_response(msg: &str) -> Response {
+    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
 }
-
 #[derive(Debug, Serialize)]
 pub struct TokenResponse {
     pub token: String,

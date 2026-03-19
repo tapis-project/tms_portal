@@ -1,17 +1,23 @@
 use crate::db::config_dao::get_state_cookie_path;
 use crate::db::idp_dao::{get_idp_by_id, get_idps};
-use crate::models::api::{Entity, TmsApiErrorResult, TmsResponse, TokenResponse};
+use crate::models::api::Entity::Success;
+use crate::models::api::{Entity, TmsResponse, TokenResponse};
 use crate::models::oauth2::IdpResponse;
 use crate::models::oauth2::{
     AuthCodeQueryParams, AuthorizationCodeResponse, AuthorizeByIdpRequest,
 };
+use crate::models::service_error::AppError;
+use crate::models::service_error::ServiceError::Internal;
 use crate::models::tms_internal::OAuthState;
+use crate::models::tms_internal::TmsServiceError::{BadRequest, NotFoundError, Unauthorized};
 use crate::services::oauth_service::{
     decode_access_token, decode_state, encode_state, exchange_code_for_token, make_auth_token,
 };
 use crate::AppState;
+use anyhow::Result;
+use anyhow::{bail, Context};
 use axum::extract::State;
-use axum::{debug_handler, extract::Query, routing::get, Form, Json, Router};
+use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::PrivateCookieJar;
 use reqwest::StatusCode;
 use serde_json::Value;
@@ -23,12 +29,19 @@ pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/oauth2/callback", get(get_callback_handler))
         .route("/oauth2/idp", get(get_idp_handler))
+        .route("/oauth2/test", get(testit))
         .route("/oauth2/authorize", get(get_authorize_handler))
 }
 #[debug_handler]
 pub async fn get_idp_handler(
     State(app_state): State<AppState>,
 ) -> TmsResponse<HashSet<IdpResponse>> {
+    // let idp_result: HashSet<IdpResponse> =
+    //     do_in_transaction(app_state, |tx| Err(anyhow!("hello"))).await?;
+
+    // Ok(TmsResponse::builder(StatusCode::OK)
+    //     .entity(Entity::Success(idp_result))
+    //     .build())
     let mut idp_result: HashSet<IdpResponse> = HashSet::new();
     let mut tx = app_state.db_pool.begin().await.unwrap();
     match get_idps(&mut tx).await {
@@ -38,16 +51,14 @@ pub async fn get_idp_handler(
                 idp_result.insert(idp.clone().into());
             });
             TmsResponse::builder(StatusCode::OK)
-                .entity(Entity::Success(Json(idp_result)))
+                .entity(Entity::Success(idp_result))
                 .build()
         }
 
         Err(error) => {
             tx.rollback().await.unwrap();
             TmsResponse::builder(StatusCode::INTERNAL_SERVER_ERROR)
-                .entity(Entity::Error(Json(TmsApiErrorResult {
-                    message: error.to_string(),
-                })))
+                .entity_from(error)
                 .build()
         }
     }
@@ -64,9 +75,7 @@ pub async fn get_callback_handler(
         Some(state_string) => state_string,
         None => {
             return TmsResponse::builder(StatusCode::UNAUTHORIZED)
-                .entity(Entity::Error(Json(TmsApiErrorResult {
-                    message: "Missing query parameter: State".to_string(),
-                })))
+                .entity_from(BadRequest("Missing query parameter: State".to_string()))
                 .build();
         }
     };
@@ -75,9 +84,7 @@ pub async fn get_callback_handler(
         Some(idp_cookie) if idp_cookie.value().eq(state_string) => idp_cookie.value().to_owned(),
         _ => {
             return TmsResponse::builder(StatusCode::UNAUTHORIZED)
-                .entity(Entity::Error(Json(TmsApiErrorResult {
-                    message: "No state cookies were found".to_string(),
-                })))
+                .entity_from(Unauthorized("No state cookies were found".to_string()))
                 .build();
         }
     };
@@ -87,7 +94,7 @@ pub async fn get_callback_handler(
         Ok(state) => state,
         Err(error) => {
             return TmsResponse::builder(StatusCode::UNAUTHORIZED)
-                .entity(Entity::Error(Json(TmsApiErrorResult { message: error })))
+                .entity_from(error)
                 .build();
         }
     };
@@ -97,9 +104,7 @@ pub async fn get_callback_handler(
         Ok(idp) => idp,
         Err(_) => {
             return TmsResponse::builder(StatusCode::NOT_FOUND)
-                .entity(Entity::Error(Json(TmsApiErrorResult {
-                    message: "Idp was not found".to_string(),
-                })))
+                .entity_from(NotFoundError("Idp was not found".to_string()))
                 .build();
         }
     };
@@ -109,9 +114,7 @@ pub async fn get_callback_handler(
             Ok(token) => token,
             Err(error) => {
                 return TmsResponse::builder(StatusCode::INTERNAL_SERVER_ERROR)
-                    .entity(Entity::from(TmsApiErrorResult {
-                        message: error.to_string(),
-                    }))
+                    .entity_from(error)
                     .build();
             }
         };
@@ -121,24 +124,21 @@ pub async fn get_callback_handler(
         Ok(claims) => claims,
         Err(error) => {
             return TmsResponse::builder(StatusCode::NOT_FOUND)
-                .entity(Entity::Error(Json(TmsApiErrorResult {
-                    message: format!("Unable to decode id token: {}", error),
-                })))
+                .entity_from(error)
                 .build();
         }
     };
 
     match make_auth_token(claims).await {
         Ok(token) => TmsResponse::builder(StatusCode::OK)
-            .entity(Entity::Success(Json(TokenResponse { token })))
+            .entity(Entity::Success(TokenResponse { token }))
             .build(),
         Err(error) => TmsResponse::builder(StatusCode::INTERNAL_SERVER_ERROR)
-            .entity(Entity::Error(Json(TmsApiErrorResult {
-                message: format!("Error encoding token: {}", error),
-            })))
+            .entity_from(error)
             .build(),
     }
 }
+
 #[debug_handler]
 pub async fn get_authorize_handler(
     State(app_state): State<AppState>,
@@ -160,11 +160,11 @@ pub async fn get_authorize_handler(
 
             let encoded_state = match encode_state(oauth_state).await {
                 Ok(state_string) => state_string,
-                Err(message) => {
+                Err(error) => {
                     return (
                         jar,
                         TmsResponse::builder(StatusCode::INTERNAL_SERVER_ERROR)
-                            .entity(Entity::from(TmsApiErrorResult { message }))
+                            .entity_from(error)
                             .build(),
                     );
                 }
@@ -196,17 +196,35 @@ pub async fn get_authorize_handler(
             )
         }
 
-        Err(err) => {
-            let error = TmsApiErrorResult {
-                message: format!("{}", err),
-            };
+        Err(error) => (
+            jar,
+            TmsResponse::builder(StatusCode::BAD_REQUEST)
+                .entity_from(error)
+                .build(),
+        ),
+    }
+}
 
-            (
-                jar,
-                TmsResponse::builder(StatusCode::BAD_REQUEST)
-                    .entity(Entity::from(error))
-                    .build(),
-            )
-        }
+pub async fn testit() -> anyhow::Result<TmsResponse<String>, AppError> {
+    let resp = isit().await.context("IISit failed:")?;
+    //    let resp = isit().await.with_context(|| "IISit failed:")?;
+    let resp = isit().await?;
+    Ok(TmsResponse::builder(StatusCode::OK)
+        .entity(Success(resp))
+        .build())
+}
+
+pub async fn isit() -> Result<String> {
+    let millis = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)?
+        .as_millis();
+    if millis.is_multiple_of(2) {
+        Ok("It's OK".to_string())
+    } else if millis.is_multiple_of(3) {
+        let err = Internal("It's NOT OK".to_string());
+        Err(Internal("It's NOT OK".to_string()).into())
+    } else {
+        let err = Internal("It's NOT OK".to_string());
+        Err(bail!("It's REEALLY NOT OK".to_string()))
     }
 }

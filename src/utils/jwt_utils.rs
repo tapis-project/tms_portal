@@ -1,4 +1,5 @@
 use crate::models::tms_internal::TmsResult;
+use crate::models::tms_internal::TmsServiceError::InternalError;
 use jsonwebtoken::jwk::JwkSet;
 use jsonwebtoken::{
     decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData,
@@ -47,7 +48,7 @@ impl JwtDecoderBuilder {
 
                 let token_header = match decode_header(token) {
                     Ok(header) => header,
-                    Err(error) => return Err(error.to_string()),
+                    Err(error) => return Err(InternalError(error.to_string())),
                 };
 
                 let jwk = match token_header.kid {
@@ -57,18 +58,22 @@ impl JwtDecoderBuilder {
 
                 let decoding_key_result = match jwk {
                     Some(jwk) => DecodingKey::from_jwk(jwk),
-                    None => return Err("Unable to find the proper key".to_string()),
+                    None => return Err(InternalError("Unable to find the proper key".to_string())),
                 };
 
                 match decoding_key_result {
                     Ok(decoding_key) => decoding_key,
-                    Err(error) => return Err(error.to_string()),
+                    Err(error) => return Err(InternalError(error.to_string())),
                 }
             }
 
             None => match &self.public_key {
                 Some(public_key) => public_key.to_owned(),
-                None => return Err("No key available for decoding JWT".to_string()),
+                None => {
+                    return Err(InternalError(
+                        "No key available for decoding JWT".to_string(),
+                    ));
+                }
             },
         };
         // TODO: remember this trick for generics.  It helps a lot!!
@@ -80,7 +85,7 @@ impl JwtDecoderBuilder {
 
         let decoded: TokenData<T> = match decode(token, &decoding_key, &validation) {
             Ok(decoded) => decoded,
-            Err(error) => return Err(error.to_string()),
+            Err(error) => return Err(InternalError(error.to_string())),
         };
 
         Ok(decoded.claims)
@@ -92,11 +97,11 @@ pub async fn get_public_key(pub_key_url: &String) -> TmsResult<JwkSet> {
     let jwks_string = match client.get(pub_key_url.as_str()).send().await {
         Ok(response) => match response.text().await {
             Ok(jwks_string) => jwks_string,
-            Err(error) => return Err(error.to_string()),
+            Err(error) => return Err(InternalError(error.to_string())),
         },
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(InternalError(error.to_string())),
     };
-    serde_json::from_str(jwks_string.as_str()).map_err(|error| error.to_string())
+    serde_json::from_str(jwks_string.as_str()).map_err(|error| InternalError(error.to_string()))
 }
 
 pub struct JwtEncoderBuilder<T> {
@@ -119,7 +124,7 @@ where
     pub async fn encode(&self) -> TmsResult<String> {
         match encode(&self.header, &self.claims, &self.encoding_key) {
             Ok(encoded) => Ok(encoded),
-            Err(error) => Err(format!("Error encoding JWT: {}", error)),
+            Err(error) => Err(InternalError(format!("Error encoding JWT: {}", error))),
         }
     }
 }

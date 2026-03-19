@@ -3,6 +3,7 @@ use crate::db::config_dao::{
     get_state_public_key,
 };
 use crate::db::idp_dao::Idp;
+use crate::models::tms_internal::TmsServiceError::InternalError;
 use crate::models::tms_internal::{OAuthState, TmsResult};
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header};
@@ -13,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 pub async fn decode_state(state_string: &String) -> TmsResult<OAuthState> {
     let decoding_key = match DecodingKey::from_rsa_pem(&get_state_public_key().as_bytes()) {
         Ok(decoding_key) => decoding_key,
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(InternalError(error.to_string())),
     };
 
     JwtDecoderBuilder::builder()
@@ -26,7 +27,7 @@ pub async fn encode_state(oauth_state: OAuthState) -> TmsResult<String> {
     let header = Header::new(Algorithm::RS256);
     let key = match EncodingKey::from_rsa_pem(get_state_private_key().as_bytes()) {
         Ok(key) => key,
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(InternalError(error.to_string())),
     };
 
     JwtEncoderBuilder::builder(header, oauth_state, key)
@@ -55,17 +56,22 @@ where
         Ok(response) => {
             let token_string = match response.text().await {
                 Ok(response_string) => response_string,
-                Err(error) => return Err(format!("Error getting response body: {}", error)),
+                Err(error) => {
+                    return Err(InternalError(format!(
+                        "Error getting response body: {}",
+                        error
+                    )));
+                }
             };
 
             let token = match serde_json::from_str::<R>(&token_string) {
                 Ok(token) => token,
-                Err(error) => return Err(error.to_string()),
+                Err(error) => return Err(InternalError(error.to_string())),
             };
 
             Ok(token)
         }
-        Err(error) => Err(error.to_string()),
+        Err(error) => Err(InternalError(error.to_string())),
     }
 }
 
@@ -81,7 +87,7 @@ where
         .await
     {
         Ok(decoded) => Ok(decoded),
-        Err(error) => Err(format!("Error decoding JWT: {}", error)),
+        Err(error) => Err(InternalError(format!("Error decoding JWT: {}", error))),
     }
 }
 
@@ -89,7 +95,7 @@ pub async fn make_auth_token(claims: HashMap<String, Value>) -> TmsResult<String
     let header = Header::new(Algorithm::RS256);
     let encoding_key = match EncodingKey::from_rsa_pem(&get_jwt_private_key().into_bytes()) {
         Ok(key) => key,
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(InternalError(error.to_string())),
     };
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?

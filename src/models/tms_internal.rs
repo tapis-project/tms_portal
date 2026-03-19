@@ -1,9 +1,14 @@
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::result;
-
-pub(crate) type TmsResult<T> = result::Result<T, String>;
-pub(crate) type TmsResultNew<T> = Result<T, Box<dyn Error>>;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum TmsServiceError {
+    InternalError(String),
+    DatabaseError(String),
+    BadRequest(String),
+    Unauthorized(String),
+    NotFoundError(String),
+}
+pub(crate) type TmsResult<T> = result::Result<T, TmsServiceError>;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OAuthState {
     // TODO: generate crypto random nonce (or something)
