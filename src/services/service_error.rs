@@ -46,11 +46,6 @@ impl IntoResponse for AppError {
                     format!("Formated Interal: {:#}", error),
                 )
                     .into_response(),
-                _ => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Formated Interal: {:#}", error),
-                )
-                    .into_response(),
             }
         } else {
             (

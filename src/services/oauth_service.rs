@@ -2,21 +2,54 @@ use crate::db::config_dao::{
     get_client_id, get_client_secret, get_jwt_private_key, get_state_private_key,
     get_state_public_key,
 };
-use crate::db::idp_dao::{dao_get_idp_by_id, dao_get_idps, Idp};
-use crate::models::oauth2::{AuthorizationCodeResponse, IdpResponse};
-use crate::models::service_error::ServiceError::Unauthorized;
-use crate::models::tms_internal::OAuthState;
+use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
+use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
 use anyhow::{Context, Result};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 
+#[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
+pub struct IdpResponse {
+    pub id: String,
+    pub name: String,
+    pub client_id: String,
+    pub oauth2_token_url: String,
+    pub user_info_url: Option<String>,
+}
+impl From<Idp> for IdpResponse {
+    fn from(value: Idp) -> Self {
+        IdpResponse {
+            id: value.id,
+            name: value.name,
+            client_id: value.client_id,
+            oauth2_token_url: value.oauth2_token_url,
+            user_info_url: value.oidc_user_info_url,
+        }
+    }
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthorizationCodeResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub id_token: String,
+    pub token_type: String,
+    pub expires_in: u64,
+    pub refresh_token_iat: u64,
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub struct OAuthState {
+    // TODO: generate crypto random nonce (or something)
+    // TODO: can the expiration work better?
+    pub idp_id: String,
+    pub exp: u64,
+}
 pub async fn get_idps(pool: &PgPool) -> Result<HashSet<IdpResponse>> {
     let mut tx = pool.begin().await?;
-    let idps = dao_get_idps(&mut tx).await?;
+    let idps = db_get_idps(&mut tx).await?;
     tx.commit().await?;
 
     let mut idp_result: HashSet<IdpResponse> = HashSet::new();
@@ -42,23 +75,26 @@ pub async fn handle_callback(
     dbg!(&decoded_state);
 
     let mut tx = pool.begin().await?;
-    let idp = dao_get_idp_by_id(&mut tx, &decoded_state.idp_id)
+    let idp = db_get_idp_by_id(&mut tx, &decoded_state.idp_id)
         .await
         .context("Unable to get idp for database")?;
 
     let token: AuthorizationCodeResponse = exchange_code_for_token(&idp, code).await?;
     dbg!(&token);
 
-    let claims = decode_access_token(&idp, &token.id_token).await?;
+    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
+    claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
     make_auth_token(claims).await
 }
 
 pub async fn decode_state(state_string: &String) -> Result<OAuthState> {
-    let decoding_key = DecodingKey::from_rsa_pem(&get_state_public_key().as_bytes())?;
+    let decoding_key = Some(DecodingKey::from_rsa_pem(
+        &get_state_public_key().as_bytes(),
+    )?);
 
     JwtDecoderBuilder::builder()
-        .public_key(decoding_key)
+        .public_key(&decoding_key)
         .decode::<OAuthState>(&state_string)
         .await
 }
@@ -103,9 +139,14 @@ where
     T: for<'a> Deserialize<'a>,
 {
     let audience = HashSet::from([get_client_id()]);
+    let public_key = match idp.oauth2_public_key {
+        Some(ref key) => Some(DecodingKey::from_rsa_pem(key.as_bytes())?),
+        None => None,
+    };
 
     JwtDecoderBuilder::builder()
         .jwks_url(&idp.oauth2_jwks_url)
+        .public_key(&public_key)
         .audience(audience)
         .decode(id_token)
         .await

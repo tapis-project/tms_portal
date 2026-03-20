@@ -1,8 +1,5 @@
 use crate::models::api::Entity::ServiceError;
 use crate::models::tms_internal::TmsServiceError;
-use crate::models::tms_internal::TmsServiceError::{
-    BadRequest, DatabaseError, InternalError, Unauthorized,
-};
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
@@ -52,11 +49,6 @@ where
         self
     }
 
-    pub fn entity_from(mut self, error: TmsServiceError) -> TmsResponseBuilder<T> {
-        self.entity = Some(Entity::from(error));
-        self
-    }
-
     pub fn headers(mut self, headers: HashMap<String, String>) -> TmsResponseBuilder<T> {
         self.headers = Some(headers);
         self
@@ -74,9 +66,9 @@ pub struct TmsResponse<T>
 where
     T: Serialize,
 {
-    pub(crate) status_code: StatusCode,
-    pub(crate) entity: Option<Entity<T>>,
-    pub(crate) headers: Option<HashMap<String, String>>,
+    pub status_code: StatusCode,
+    pub entity: Option<Entity<T>>,
+    pub headers: Option<HashMap<String, String>>,
 }
 
 impl<T> TmsResponse<T>
@@ -88,19 +80,6 @@ where
             status_code,
             entity: None,
             headers: None,
-        }
-    }
-}
-
-impl IntoResponse for TmsServiceError {
-    fn into_response(self) -> Response {
-        match self {
-            InternalError(error) | DatabaseError(error) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, error).into_response()
-            }
-            BadRequest(error) => (StatusCode::BAD_REQUEST, error).into_response(),
-            Unauthorized(error) => (StatusCode::UNAUTHORIZED, error).into_response(),
-            NotFound => (StatusCode::NOT_FOUND, String::new()).into_response(),
         }
     }
 }

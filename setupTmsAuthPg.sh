@@ -68,6 +68,7 @@ done
 
 announce "database container on port ${PG_PORT}"
 export PG_PORT
+export PG_ADMIN_PASS
 
 announce "running docker compose up"
 docker compose -f ${SCRIPT_DIR}/docker-compose.yml up --wait

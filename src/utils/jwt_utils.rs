@@ -1,6 +1,4 @@
-use crate::models::service_error::ServiceError::Internal;
-use crate::models::tms_internal::TmsResult;
-use crate::models::tms_internal::TmsServiceError::InternalError;
+use crate::services::service_error::ServiceError::Internal;
 use anyhow::{Context, Result};
 use jsonwebtoken::jwk::JwkSet;
 use jsonwebtoken::{
@@ -24,13 +22,17 @@ impl JwtDecoderBuilder {
             audience: None,
         }
     }
-    pub fn jwks_url(mut self, jwks_url: &str) -> Self {
-        self.jwks_url = Some(String::from(jwks_url));
+    pub fn jwks_url(mut self, jwks_url: &Option<String>) -> Self {
+        if let Some(jwks_url) = jwks_url {
+            self.jwks_url = Some(String::from(jwks_url));
+        }
         self
     }
 
-    pub fn public_key(mut self, public_key: DecodingKey) -> Self {
-        self.public_key = Some(public_key);
+    pub fn public_key(mut self, public_key: &Option<DecodingKey>) -> Self {
+        if let Some(public_key) = public_key {
+            self.public_key = Some(public_key.clone());
+        }
         self
     }
 

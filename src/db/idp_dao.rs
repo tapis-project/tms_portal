@@ -1,4 +1,4 @@
-use crate::models::service_error::ServiceError::NotFound;
+use crate::services::service_error::ServiceError::NotFound;
 use anyhow::Result;
 use sqlx::postgres::PgRow;
 use sqlx::types::time::PrimitiveDateTime;
@@ -13,9 +13,10 @@ pub struct Idp {
     pub client_secret: String,
     pub identity_redirect_url: String,
     pub oauth2_token_url: String,
-    pub oauth2_jwks_url: String,
-    pub user_info_url: String,
-    pub scope: String,
+    pub oauth2_jwks_url: Option<String>,
+    pub oidc_user_info_url: Option<String>,
+    pub oauth2_public_key: Option<String>,
+    pub scope: Option<String>,
     pub created: PrimitiveDateTime,
     pub updated: PrimitiveDateTime,
 }
@@ -30,7 +31,8 @@ impl From<&PgRow> for Idp {
             identity_redirect_url: row.get("identity_redirect_url"),
             oauth2_token_url: row.get("oauth2_token_url"),
             oauth2_jwks_url: row.get("oauth2_jwks_url"),
-            user_info_url: row.get("user_info_url"),
+            oidc_user_info_url: row.get("oidc_user_info_url"),
+            oauth2_public_key: row.get("oauth2_public_key"),
             scope: row.get("scope"),
             created: row.get("created"),
             updated: row.get("updated"),
@@ -38,28 +40,25 @@ impl From<&PgRow> for Idp {
     }
 }
 
-pub async fn dao_get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
+pub async fn db_get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
     let idp_query_result = query(
         "select id, name, client_id, client_secret, identity_redirect_url,
-                     oauth2_token_url, oauth2_jwks_url, user_info_url, scope,
-                     created, updated from idps",
+                     oauth2_token_url, oauth2_jwks_url, oidc_user_info_url, 
+                     oauth2_public_key, scope, created, updated from idps",
     )
     .fetch_all(&mut **tx)
     .await?;
 
-    let idp_collection: Vec<Idp> = idp_query_result
-        .iter()
-        .map(|row| Idp::from(row.clone()))
-        .collect();
+    let idp_collection: Vec<Idp> = idp_query_result.iter().map(|row| Idp::from(row)).collect();
     dbg!(&idp_collection);
     Ok(HashSet::from_iter(idp_collection.into_iter()))
 }
 
-pub async fn dao_get_idp_by_id<'a>(tx: &mut PgTransaction<'a>, id: &String) -> Result<Idp> {
+pub async fn db_get_idp_by_id<'a>(tx: &mut PgTransaction<'a>, id: &String) -> Result<Idp> {
     let row = query(
         "select id, name, client_id, client_secret, identity_redirect_url,
-                     oauth2_token_url, oauth2_jwks_url, user_info_url, scope,
-                     created, updated from idps where id = $1",
+                     oauth2_token_url, oauth2_jwks_url, oidc_user_info_url, 
+                     oauth2_public_key, scope, created, updated from idps where id = $1",
     )
     .bind(id)
     .fetch_one(&mut **tx)

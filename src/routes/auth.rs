@@ -1,13 +1,11 @@
 use crate::db::config_dao::get_state_cookie_path;
-use crate::db::idp_dao::dao_get_idp_by_id;
+use crate::db::idp_dao::db_get_idp_by_id;
 use crate::models::api::{Entity, TmsResponse, TokenResponse};
-use crate::models::oauth2::IdpResponse;
 use crate::models::oauth2::{AuthCodeQueryParams, AuthorizeByIdpRequest};
-use crate::models::service_error::AppError;
-use crate::models::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use crate::models::tms_internal::OAuthState;
-use crate::services::oauth_service::{encode_state, get_idps, handle_callback};
-//use crate::models::tms_internal::TmsServiceError::{BadRequest, NotFoundError, Unauthorized};
+use crate::services::oauth_service::OAuthState;
+use crate::services::oauth_service::{encode_state, get_idps, handle_callback, IdpResponse};
+use crate::services::service_error::AppError;
+use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::State;
@@ -67,7 +65,7 @@ pub async fn get_authorize_handler(
     form_data: Form<AuthorizeByIdpRequest>,
 ) -> Result<(PrivateCookieJar, TmsResponse<()>), AppError> {
     let mut tx = app_state.db_pool.begin().await?;
-    let idp = dao_get_idp_by_id(&mut tx, &form_data.idp_id).await;
+    let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
 
     match idp {
         Ok(idp) => {
@@ -86,19 +84,20 @@ pub async fn get_authorize_handler(
                 Err(error) => return Err(Internal(error.to_string()).into()),
             };
 
+            let mut query_params = vec![
+                ("response_type", "code"),
+                ("client_id", &idp.client_id),
+                ("redirect_uri", "http://localhost:8080/oauth2/callback"),
+                ("state", &encoded_state),
+                ("nonce", "TODO: Add a real nonce"),
+            ];
+
+            if let Some(scope) = &idp.scope {
+                query_params.push(("scope", scope.as_str()))
+            }
+
             // TODO:  make a real nonce
-            let location = Url::parse_with_params(
-                &idp.identity_redirect_url,
-                [
-                    ("response_type", "code"),
-                    ("client_id", &idp.client_id),
-                    ("redirect_uri", "http://localhost:8080/oauth2/callback"),
-                    ("scope", &idp.scope),
-                    ("state", &encoded_state),
-                    ("nonce", "TODO: Add a real nonce"),
-                ],
-            )
-            .unwrap();
+            let location = Url::parse_with_params(&idp.identity_redirect_url, query_params)?;
 
             let updated_jar = jar.add((get_state_cookie_path(), encoded_state));
 
@@ -118,27 +117,3 @@ pub async fn get_authorize_handler(
         }
     }
 }
-
-// pub async fn testit() -> anyhow::Result<TmsResponse<String>, AppError> {
-//     let resp = isit().await.context("IISit failed:")?;
-//     //    let resp = isit().await.with_context(|| "IISit failed:")?;
-//     let resp = isit().await?;
-//     Ok(TmsResponse::builder(StatusCode::OK)
-//         .entity(Success(resp))
-//         .build())
-// }
-//
-// pub async fn isit() -> Result<String> {
-//     let millis = SystemTime::now()
-//         .duration_since(SystemTime::UNIX_EPOCH)?
-//         .as_millis();
-//     if millis.is_multiple_of(2) {
-//         Ok("It's OK".to_string())
-//     } else if millis.is_multiple_of(3) {
-//         let err = Internal("It's NOT OK".to_string());
-//         Err(Internal("It's NOT OK".to_string()).into())
-//     } else {
-//         let err = Internal("It's NOT OK".to_string());
-//         Err(bail!("It's REEALLY NOT OK".to_string()))
-//     }
-// }
