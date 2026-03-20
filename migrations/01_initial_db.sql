@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS idps (
+        id                      TEXT    PRIMARY KEY     NOT NULL,
+        name                    TEXT                    NOT NULL,
+        client_id               TEXT                    NOT NULL,
+        client_secret           TEXT                    NOT NULL,
+        identity_redirect_url   TEXT                    NOT NULL,
+        oauth2_token_url        TEXT                    NOT NULL,
+        oauth2_jwks_url         TEXT,
+        oauth2_public_key       TEXT,
+        oidc_user_info_url      TEXT,
+        scope                   TEXT,
+        created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+        updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+);
+
+INSERT INTO idps (id, name, client_id, client_secret, identity_redirect_url, 
+oauth2_token_url, oauth2_jwks_url, oidc_user_info_url, scope) 
+VALUES ('cilogon_idp', 'CILogon IDP', 'cilogon:/client_id/3d38b53c9709489136c9b68c8f769c99',
+'_-9v-A023hVLquAlLjToWSQoF5XOwCKjG8i8QHtCN3K4c8fjF_ILSmf4ZekXafk0VC6q_T66WOntSUxgJLjN1Q',
+'https://cilogon.org/authorize', 'https://cilogon.org/oauth2/token', 
+'https://cilogon.org/oauth2/certs', 'https://cilogon.org/oauth2/userinfo',
+'openid profile email org.cilogon.userinfo');
+
+INSERT INTO idps (id, name, client_id, client_secret, identity_redirect_url, 
+oauth2_token_url, oauth2_public_key, oidc_user_info_url, scope) 
+VALUES ('cilogon_idp2', 'CILogon IDP', 'cilogon:/client_id/3d38b53c9709489136c9b68c8f769c99',
+'_-9v-A023hVLquAlLjToWSQoF5XOwCKjG8i8QHtCN3K4c8fjF_ILSmf4ZekXafk0VC6q_T66WOntSUxgJLjN1Q',
+'https://cilogon.org/authorize', 'https://cilogon.org/oauth2/token', 
+'-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhpJRWPJAv9yolz9ewiLJ
+Mk1udGZC0JSWX1OwqaTUpWgcvDricRmS0TVxWeDaHig7lprkb7YowOdBv20TWeeN
+NO1HxTO5nVDwg2jQ8IliR2Gscwi9pC6gektC9CXEBEEJYnl0rx9kazSvMTwXD/92
+jZt3k8ixbuNzX6ZcfotXe/vmFu7Jtgxr9XYzZXTMMjXLC4qt02oURVHOMwjR0ziu
+IIn0wZXvy7kGScnRZgYvyTBpIfvsRtVIEye5XPnk+DCBRo769qMFCDXD1Qhc9ePa
+xLseqhtO00XEqv8SZ6MnvjWpuvlxW6GPmVHK6h2tvD2Lk4GUO9qsj8wrU1KrsUgf
+sQIDAQAB
+-----END PUBLIC KEY-----', 'https://cilogon.org/oauth2/userinfo',
+'openid profile email org.cilogon.userinfo');
+

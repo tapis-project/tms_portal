@@ -40,6 +40,11 @@ async fn main() {
         db_pool: init_db(&database_url).await,
     };
 
+    println!("Running sqlx/Postgresql migration");
+    sqlx::migrate!("./migrations/")
+        .run(&state.db_pool)
+        .await
+        .unwrap();
     println!("Server running at http://localhost:8080");
 
     // build our application with a single route

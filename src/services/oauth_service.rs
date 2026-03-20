@@ -153,12 +153,34 @@ where
         .context("Error decoding JWT")
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct TmsTokenClaims {
+    jti: String,
+    iss: String,
+    sub: String,
+    tms_token_type: String,
+    tms_username: String,
+    tms_client_id: String,
+    tms_grant_type: String,
+    exp: String,
+}
+
 pub async fn make_auth_token(claims: HashMap<String, Value>) -> Result<String> {
     let header = Header::new(Algorithm::RS256);
     let encoding_key = EncodingKey::from_rsa_pem(&get_jwt_private_key().into_bytes())?;
+    let tms_token_clams = TmsTokenClaims {
+        jti: String::default(),
+        iss: String::default(),
+        sub: String::default(),
+        tms_token_type: String::default(),
+        tms_username: String::default(),
+        tms_client_id: String::default(),
+        tms_grant_type: String::default(),
+        exp: String::default(),
+    };
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?
-    JwtEncoderBuilder::builder(header, claims, encoding_key)
+    JwtEncoderBuilder::builder(header, tms_token_clams, encoding_key)
         .encode()
         .await
 }
