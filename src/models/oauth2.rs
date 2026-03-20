@@ -14,7 +14,7 @@ pub struct AuthorizationCodeResponse {
 #[derive(Debug, Deserialize)]
 pub struct AuthCodeQueryParams {
     pub code: String,
-    pub state: Option<String>,
+    pub state: String,
 }
 
 #[derive(Debug, Deserialize)]

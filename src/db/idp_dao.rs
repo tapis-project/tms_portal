@@ -1,3 +1,4 @@
+use crate::models::service_error::ServiceError::NotFound;
 use anyhow::Result;
 use sqlx::postgres::PgRow;
 use sqlx::types::time::PrimitiveDateTime;
@@ -37,7 +38,7 @@ impl From<&PgRow> for Idp {
     }
 }
 
-pub async fn get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
+pub async fn dao_get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
     let idp_query_result = query(
         "select id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, user_info_url, scope,
@@ -54,15 +55,19 @@ pub async fn get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
     Ok(HashSet::from_iter(idp_collection.into_iter()))
 }
 
-pub async fn get_idp_by_id<'a>(tx: &mut PgTransaction<'a>, id: &String) -> Result<Idp> {
+pub async fn dao_get_idp_by_id<'a>(tx: &mut PgTransaction<'a>, id: &String) -> Result<Idp> {
     let row = query(
         "select id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, user_info_url, scope,
-                     created, updated from idps",
+                     created, updated from idps where id = $1",
     )
+    .bind(id)
     .fetch_one(&mut **tx)
-    .await?;
-
+    .await
+    .map_err(|error| match error {
+        sqlx::Error::RowNotFound => NotFound(format!("Idp id {} not found", id)).into(),
+        _ => anyhow::anyhow!(error),
+    })?;
     dbg!(&row);
     Ok(Idp::from(&row))
 }
