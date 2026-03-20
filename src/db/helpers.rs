@@ -1,13 +1,14 @@
-use crate::AppState;
 use anyhow::Result;
-use sqlx::PgTransaction;
+use sqlx::{PgPool, PgTransaction};
 
-pub async fn do_in_transaction<F, R>(state: AppState, dbfn: F) -> Result<R>
+pub async fn do_in_transaction<F, R>(db_pool: &PgPool, mut dbfn: F) -> Result<R>
 where
     F: FnOnce(&mut PgTransaction) -> Result<R>,
 {
-    let mut tx = state.db_pool.begin().await?;
-    match dbfn(&mut tx) {
+    let mut tx = db_pool.begin().await?;
+    let result = async { dbfn(&mut tx) }.await;
+
+    match result {
         Ok(result) => {
             tx.commit().await?;
             Ok(result)

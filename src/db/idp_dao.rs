@@ -1,7 +1,7 @@
-use crate::models::tms_internal::TmsResult;
-use crate::models::tms_internal::TmsServiceError::{DatabaseError, InternalError};
+use anyhow::Result;
+use sqlx::postgres::PgRow;
 use sqlx::types::time::PrimitiveDateTime;
-use sqlx::{query, PgPool, PgTransaction, Row};
+use sqlx::{query, PgTransaction, Row};
 use std::collections::HashSet;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -19,48 +19,50 @@ pub struct Idp {
     pub updated: PrimitiveDateTime,
 }
 
-pub async fn get_idps<'a>(tx: &mut PgTransaction<'a>) -> TmsResult<HashSet<Idp>> {
+impl From<&PgRow> for Idp {
+    fn from(row: &PgRow) -> Self {
+        Idp {
+            id: row.get("id"),
+            name: row.get("name"),
+            client_id: row.get("client_id"),
+            client_secret: row.get("client_secret"),
+            identity_redirect_url: row.get("identity_redirect_url"),
+            oauth2_token_url: row.get("oauth2_token_url"),
+            oauth2_jwks_url: row.get("oauth2_jwks_url"),
+            user_info_url: row.get("user_info_url"),
+            scope: row.get("scope"),
+            created: row.get("created"),
+            updated: row.get("updated"),
+        }
+    }
+}
+
+pub async fn get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
     let idp_query_result = query(
         "select id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, user_info_url, scope,
                      created, updated from idps",
     )
     .fetch_all(&mut **tx)
-    .await
-    .map_err(|e| DatabaseError(e.to_string()))?;
+    .await?;
 
     let idp_collection: Vec<Idp> = idp_query_result
         .iter()
-        .map(|row| Idp {
-            id: row.get(0),
-            name: row.get(1),
-            client_id: row.get(2),
-            client_secret: row.get(3),
-            identity_redirect_url: row.get(4),
-            oauth2_token_url: row.get(5),
-            oauth2_jwks_url: row.get(6),
-            user_info_url: row.get(7),
-            scope: row.get(8),
-            created: row.get(9),
-            updated: row.get(10),
-        })
+        .map(|row| Idp::from(row.clone()))
         .collect();
     dbg!(&idp_collection);
     Ok(HashSet::from_iter(idp_collection.into_iter()))
 }
 
-pub async fn get_idp_by_id(pool: &PgPool, id: &String) -> TmsResult<Idp> {
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(|e| DatabaseError(e.to_string()))?;
-    let idps = get_idps(&mut tx).await?;
-    let idp = idps
-        .iter()
-        .find(|idp| -> bool { idp.id.eq(id) })
-        .ok_or_else(|| InternalError(format!("Could not find id: {}", id)))?;
-    tx.commit()
-        .await
-        .map_err(|e| DatabaseError(e.to_string()))?;
-    Ok(idp.to_owned())
+pub async fn get_idp_by_id<'a>(tx: &mut PgTransaction<'a>, id: &String) -> Result<Idp> {
+    let row = query(
+        "select id, name, client_id, client_secret, identity_redirect_url,
+                     oauth2_token_url, oauth2_jwks_url, user_info_url, scope,
+                     created, updated from idps",
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    dbg!(&row);
+    Ok(Idp::from(&row))
 }

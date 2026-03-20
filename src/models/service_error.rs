@@ -15,6 +15,15 @@ where
 pub enum ServiceError {
     #[error("Internal server error: {0}")]
     Internal(String),
+
+    #[error("Not found error: {0}")]
+    NotFound(String),
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
+    #[error("Unauthorized error: {0}")]
+    Unauthorized(String),
 }
 
 impl IntoResponse for AppError {
@@ -23,6 +32,17 @@ impl IntoResponse for AppError {
             match error {
                 ServiceError::Internal(_) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Formated Interal: {:#}", error),
+                )
+                    .into_response(),
+                ServiceError::NotFound(_) => {
+                    (StatusCode::NOT_FOUND, format!("{:#}", error)).into_response()
+                }
+                ServiceError::Unauthorized(_) => {
+                    (StatusCode::UNAUTHORIZED, format!("{:#}", error)).into_response()
+                }
+                ServiceError::BadRequest(_) => (
+                    StatusCode::BAD_REQUEST,
                     format!("Formated Interal: {:#}", error),
                 )
                     .into_response(),
