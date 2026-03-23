@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
 pub struct IdpResponse {
@@ -158,10 +159,16 @@ struct TmsTokenClaims {
     jti: String,
     iss: String,
     sub: String,
+    #[serde(rename = "tms/token_type")]
     tms_token_type: String,
+    #[serde(rename = "tms/username")]
     tms_username: String,
+    #[serde(rename = "tms/client_id")]
     tms_client_id: String,
+    #[serde(rename = "tms/grant_type")]
     tms_grant_type: String,
+    #[serde(rename = "tms/account_type")]
+    tms_account_type: String,
     exp: String,
 }
 
@@ -169,14 +176,15 @@ pub async fn make_auth_token(claims: HashMap<String, Value>) -> Result<String> {
     let header = Header::new(Algorithm::RS256);
     let encoding_key = EncodingKey::from_rsa_pem(&get_jwt_private_key().into_bytes())?;
     let tms_token_clams = TmsTokenClaims {
-        jti: String::default(),
-        iss: String::default(),
-        sub: String::default(),
-        tms_token_type: String::default(),
-        tms_username: String::default(),
-        tms_client_id: String::default(),
-        tms_grant_type: String::default(),
-        exp: String::default(),
+        jti: Uuid::new_v4().to_string(),
+        iss: String::from("TODO: .."),
+        sub: String::from("TODO: .."),
+        tms_token_type: String::from("access"),
+        tms_username: String::from("TODO: .."),
+        tms_client_id: String::from("TODO: .."),
+        tms_grant_type: String::from("password"),
+        tms_account_type: String::from("user"),
+        exp: String::from("TODO: .."),
     };
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?

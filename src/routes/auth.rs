@@ -9,6 +9,7 @@ use crate::services::service_error::ServiceError::{BadRequest, Internal, Unautho
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::State;
+use axum::routing::post;
 use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::PrivateCookieJar;
 use reqwest::StatusCode;
@@ -21,7 +22,7 @@ pub async fn router() -> Router<AppState> {
         .route("/oauth2/callback", get(get_callback_handler))
         .route("/oauth2/idp", get(get_idp_handler))
         // .route("/oauth2/test", get(testit))
-        .route("/oauth2/authorize", get(get_authorize_handler))
+        .route("/oauth2/authorize", post(post_authorize_handler))
 }
 
 #[debug_handler]
@@ -59,7 +60,7 @@ pub async fn get_callback_handler(
 }
 
 #[debug_handler]
-pub async fn get_authorize_handler(
+pub async fn post_authorize_handler(
     State(app_state): State<AppState>,
     jar: PrivateCookieJar,
     form_data: Form<AuthorizeByIdpRequest>,
