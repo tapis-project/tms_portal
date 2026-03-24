@@ -54,7 +54,9 @@ pub fn get_jwt_public_key() -> String {
     get_state_public_key()
 }
 pub fn get_client_id() -> String {
-    "cilogon:/client_id/3d38b53c9709489136c9b68c8f769c99".to_string()
+    //    "cilogon:/client_id/3d38b53c9709489136c9b68c8f769c99".to_string()
+    //TODO:  This needs to be on a per idp basis - move to idp table
+    "aab240d2-2df2-42d4-a67b-eb268076fa9d".to_string()
 }
 pub fn get_client_secret() -> String {
     "_-9v-A023hVLquAlLjToWSQoF5XOwCKjG8i8QHtCN3K4c8fjF_ILSmf4ZekXafk0VC6q_T66WOntSUxgJLjN1Q"

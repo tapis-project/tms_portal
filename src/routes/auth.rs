@@ -9,9 +9,10 @@ use crate::services::service_error::ServiceError::{BadRequest, Internal, Unautho
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::State;
-use axum::routing::post;
 use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::PrivateCookieJar;
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
@@ -22,7 +23,7 @@ pub async fn router() -> Router<AppState> {
         .route("/oauth2/callback", get(get_callback_handler))
         .route("/oauth2/idp", get(get_idp_handler))
         // .route("/oauth2/test", get(testit))
-        .route("/oauth2/authorize", post(post_authorize_handler))
+        .route("/oauth2/authorize", get(post_authorize_handler))
 }
 
 #[debug_handler]
@@ -91,6 +92,7 @@ pub async fn post_authorize_handler(
                 ("redirect_uri", "http://localhost:8080/oauth2/callback"),
                 ("state", &encoded_state),
                 ("nonce", "TODO: Add a real nonce"),
+                ("access_type", "offline"),
             ];
 
             if let Some(scope) = &idp.scope {
@@ -104,6 +106,10 @@ pub async fn post_authorize_handler(
 
             let mut headers = HashMap::new();
             headers.insert("location".to_string(), location.to_string());
+            let creds = format!("{}:{}", idp.client_id, idp.client_secret);
+            let authorization = format!("Basic {}", BASE64_STANDARD.encode(&creds));
+            headers.insert("Authorization".to_string(), authorization);
+
             Ok((
                 updated_jar,
                 TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)

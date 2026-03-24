@@ -1,6 +1,5 @@
 use crate::db::config_dao::{
-    get_client_id, get_client_secret, get_jwt_private_key, get_state_private_key,
-    get_state_public_key,
+    get_client_id, get_jwt_private_key, get_state_private_key, get_state_public_key,
 };
 use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
 use crate::services::service_error::ServiceError::Unauthorized;
@@ -39,7 +38,7 @@ pub struct AuthorizationCodeResponse {
     pub id_token: String,
     pub token_type: String,
     pub expires_in: u64,
-    pub refresh_token_iat: u64,
+    //    pub refresh_token_iat: u64,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OAuthState {
@@ -115,14 +114,19 @@ where
 {
     let form_params = [
         ("grant_type", "authorization_code".to_string()),
-        ("client_id", get_client_id()),
-        ("client_secret", get_client_secret()),
+        //        ("client_id", get_client_id()),
+        //        ("client_secret", get_client_secret()),
+        (
+            "redirect_uri",
+            "http://localhost:8080/oauth2/callback".to_string(),
+        ),
         ("code", code.to_owned()),
     ];
     let client = reqwest::Client::new();
     let response = client
         .post(&idp.oauth2_token_url)
         .form(&form_params)
+        .basic_auth(idp.client_id.clone(), Some(idp.client_secret.clone()))
         .send()
         .await
         .context("Error getting response body")?;

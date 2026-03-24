@@ -45,11 +45,13 @@ impl JwtDecoderBuilder {
     where
         T: for<'a> Deserialize<'a>,
     {
+        let mut algorithm = Algorithm::RS256;
         // if jwks url is provided, use that.
         let decoding_key = match self.jwks_url {
             Some(ref jwks_url) => {
                 let jwks = get_public_key(&jwks_url).await?;
                 let token_header = decode_header(token)?;
+                algorithm = token_header.alg;
 
                 let jwk = match token_header.kid {
                     Some(kid) => jwks.find(&kid),
@@ -74,7 +76,7 @@ impl JwtDecoderBuilder {
 
         // TODO: remember this trick for generics.  It helps a lot!!
         // println!("Type is: {}", std::any::type_name::<T>());
-        let mut validation = Validation::new(Algorithm::RS256);
+        let mut validation = Validation::new(algorithm);
         if let Some(_) = &self.audience {
             validation.aud = self.audience.to_owned();
         }

@@ -50,7 +50,7 @@ pub async fn db_get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>>
     .await?;
 
     let idp_collection: Vec<Idp> = idp_query_result.iter().map(|row| Idp::from(row)).collect();
-    dbg!(&idp_collection);
+    //    dbg!(&idp_collection);
     Ok(HashSet::from_iter(idp_collection.into_iter()))
 }
 
