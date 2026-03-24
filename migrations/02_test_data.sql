@@ -22,3 +22,11 @@ sQIDAQAB
 -----END PUBLIC KEY-----', 'https://cilogon.org/oauth2/userinfo',
 'openid profile email org.cilogon.userinfo');
 
+INSERT INTO idps (id, name, client_id, client_secret, identity_redirect_url, 
+oauth2_token_url, oauth2_jwks_url, oidc_user_info_url, scope) 
+VALUES ('globus_idp3', 'Globus IDP', 'aab240d2-2df2-42d4-a67b-eb268076fa9d',
+'C1TBwDH0lj0zT33sVclDAPBzauG89JRazpE6DCDvkrM=',
+'https://auth.globus.org/v2/oauth2/authorize', 'https://auth.globus.org/v2/oauth2/token', 
+'https://auth.globus.org/jwk.json', '',
+'openid profile email');
+
