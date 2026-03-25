@@ -83,8 +83,7 @@ pub async fn handle_callback(
     let token: AuthorizationCodeResponse = exchange_code_for_token(&idp, code).await?;
     dbg!(&token);
 
-    let mut claims: HashMap<String, Value> =
-        decode_access_token(&idp, &token.id_token, client_id).await?;
+    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
     make_auth_token(pool, client_id, claims).await
@@ -145,7 +144,7 @@ where
     serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
 }
 
-pub async fn decode_access_token<T>(idp: &Idp, id_token: &String, audience: &String) -> Result<T>
+pub async fn decode_access_token<T>(idp: &Idp, id_token: &String) -> Result<T>
 where
     T: for<'a> Deserialize<'a>,
 {

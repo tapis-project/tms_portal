@@ -18,7 +18,6 @@ use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -69,9 +68,6 @@ async fn main() {
                 .layer(AuthLayer::new(state.clone())), //                .layer(AuthLayer::new()),
         )
         .with_state(state);
-    //        .layer(AuthLayer)
-    //      .layer(LoggingLayer);
-    // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

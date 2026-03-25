@@ -1,35 +1,34 @@
-use crate::models::api::Entity::ServiceError;
-use crate::models::tms_internal::TmsServiceError;
+// use crate::models::api::Entity::ServiceError;
+//use crate::models::tms_internal::TmsServiceError;
 use axum::body::Body;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
-impl Display for TmsServiceError {
-    // TODO: this should not be needed at some point soon.
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", "An error has occurred!")
-    }
-}
+// impl Display for TmsServiceError {
+//     // TODO: this should not be needed at some point soon.
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{}", "An error has occurred!")
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub enum Entity<T>
 where
     T: Serialize,
 {
-    ServiceError(TmsServiceError),
+    // ServiceError(TmsServiceError),
     Success(T),
 }
-impl<T> From<TmsServiceError> for Entity<T>
-where
-    T: Serialize,
-{
-    fn from(value: TmsServiceError) -> Self {
-        ServiceError(value)
-    }
-}
+// impl<T> From<TmsServiceError> for Entity<T>
+// where
+//     T: Serialize,
+// {
+//     fn from(value: TmsServiceError) -> Self {
+//         ServiceError(value)
+//     }
+// }
 
 pub struct TmsResponseBuilder<T>
 where
@@ -97,13 +96,13 @@ where
                     return internal_error_response("Unable to serialize entity");
                 }
             }
-            Some(Entity::ServiceError(error)) => {
-                if let Ok(json_string) = serde_json::ser::to_string(&error) {
-                    Body::from(json_string)
-                } else {
-                    return internal_error_response("Unable to serialize entity");
-                }
-            }
+            // Some(Entity::ServiceError(error)) => {
+            //     if let Ok(json_string) = serde_json::ser::to_string(&error) {
+            //         Body::from(json_string)
+            //     } else {
+            //         return internal_error_response("Unable to serialize entity");
+            //     }
+            // }
             None => Body::default(),
         };
 
