@@ -10,7 +10,10 @@ pub async fn basic_auth_is_authorized(
     secret: &String,
 ) -> Result<bool, Error> {
     let mut tx = pool.begin().await?;
-    match db_get_client_by_credentials(&mut tx, &id, &secret).await {
+    let result = db_get_client_by_credentials(&mut tx, &id, &secret).await;
+    tx.commit().await?;
+
+    match result {
         Ok(_) => Ok(true),
         Err(err) => {
             if let Some(error) = err.downcast_ref::<ServiceError>() {

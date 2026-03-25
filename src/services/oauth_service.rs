@@ -1,6 +1,5 @@
-use crate::db::config_dao::{
-    get_client_id, get_jwt_private_key, get_state_private_key, get_state_public_key,
-};
+use crate::db::client_dao::db_get_client_by_id;
+use crate::db::config_dao::get_state_key;
 use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
@@ -63,13 +62,14 @@ pub async fn handle_callback(
     pool: &PgPool,
     state: &String,
     code: &String,
+    client_id: &String,
     cookie_state: &String,
 ) -> Result<String> {
     if !cookie_state.eq(state) {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
     }
 
-    let decoded_state = decode_state(state)
+    let decoded_state = decode_state(pool, state)
         .await
         .context("Unable to decode state query param")?;
     dbg!(&decoded_state);
@@ -78,20 +78,23 @@ pub async fn handle_callback(
     let idp = db_get_idp_by_id(&mut tx, &decoded_state.idp_id)
         .await
         .context("Unable to get idp for database")?;
+    tx.commit().await?;
 
     let token: AuthorizationCodeResponse = exchange_code_for_token(&idp, code).await?;
     dbg!(&token);
 
-    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
+    let mut claims: HashMap<String, Value> =
+        decode_access_token(&idp, &token.id_token, client_id).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
-    make_auth_token(claims).await
+    make_auth_token(pool, client_id, claims).await
 }
 
-pub async fn decode_state(state_string: &String) -> Result<OAuthState> {
-    let decoding_key = Some(DecodingKey::from_rsa_pem(
-        &get_state_public_key().as_bytes(),
-    )?);
+pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthState> {
+    let mut tx = pool.begin().await?;
+    let keys = get_state_key(&mut tx).await?;
+    tx.commit().await?;
+    let decoding_key = Some(DecodingKey::from_rsa_pem(&keys.public_key.as_bytes())?);
 
     JwtDecoderBuilder::builder()
         .public_key(&decoding_key)
@@ -99,9 +102,12 @@ pub async fn decode_state(state_string: &String) -> Result<OAuthState> {
         .await
 }
 
-pub async fn encode_state(oauth_state: OAuthState) -> Result<String> {
+pub async fn encode_state(pool: &PgPool, oauth_state: OAuthState) -> Result<String> {
     let header = Header::new(Algorithm::RS256);
-    let key = EncodingKey::from_rsa_pem(get_state_private_key().as_bytes())?;
+    let mut tx = pool.begin().await?;
+    let keys = get_state_key(&mut tx).await?;
+    tx.commit().await?;
+    let key = EncodingKey::from_rsa_pem(&keys.private_key.as_bytes())?;
 
     JwtEncoderBuilder::builder(header, oauth_state, key)
         .encode()
@@ -139,11 +145,11 @@ where
     serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
 }
 
-pub async fn decode_access_token<T>(idp: &Idp, id_token: &String) -> Result<T>
+pub async fn decode_access_token<T>(idp: &Idp, id_token: &String, audience: &String) -> Result<T>
 where
     T: for<'a> Deserialize<'a>,
 {
-    let audience = HashSet::from([get_client_id()]);
+    let audience = HashSet::from([idp.client_id.to_owned()]);
     let public_key = match idp.oauth2_public_key {
         Some(ref key) => Some(DecodingKey::from_rsa_pem(key.as_bytes())?),
         None => None,
@@ -176,9 +182,15 @@ struct TmsTokenClaims {
     exp: String,
 }
 
-pub async fn make_auth_token(claims: HashMap<String, Value>) -> Result<String> {
+pub async fn make_auth_token(
+    db_pool: &PgPool,
+    client_id: &String,
+    claims: HashMap<String, Value>,
+) -> Result<String> {
     let header = Header::new(Algorithm::RS256);
-    let encoding_key = EncodingKey::from_rsa_pem(&get_jwt_private_key().into_bytes())?;
+    let mut tx = db_pool.begin().await?;
+    let client = db_get_client_by_id(&mut tx, &client_id).await?;
+    let encoding_key = EncodingKey::from_rsa_pem(&client.jwt_private_key.into_bytes())?;
     let tms_token_clams = TmsTokenClaims {
         jti: Uuid::new_v4().to_string(),
         iss: String::from("TODO: .."),

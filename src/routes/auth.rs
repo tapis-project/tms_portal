@@ -1,4 +1,3 @@
-use crate::db::config_dao::get_state_cookie_path;
 use crate::db::idp_dao::db_get_idp_by_id;
 use crate::models::api::{Entity, TmsResponse, TokenResponse};
 use crate::models::oauth2::{AuthCodeQueryParams, AuthorizeByIdpRequest};
@@ -18,6 +17,8 @@ use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 use url::Url;
 
+const CLIENT_ID_COOKIE_PATH: &str = "tms/oauth2/client_id";
+const STATE_COOKIE_PATH: &str = "tms/oauth2/state_cookie";
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/oauth2/callback", get(get_callback_handler))
@@ -49,14 +50,18 @@ pub async fn get_callback_handler(
         &query_params.state
     );
 
-    let Some(state_cookie) = jar.get(&get_state_cookie_path()) else {
+    let Some(state_cookie) = jar.get(&STATE_COOKIE_PATH) else {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
+    };
+    let Some(client_id_cookie) = jar.get(CLIENT_ID_COOKIE_PATH) else {
+        return Err(Unauthorized("No client_id cookies were found".to_string()).into());
     };
 
     let token = handle_callback(
         &app_state.db_pool,
         &query_params.state,
         &query_params.code,
+        &client_id_cookie.value().to_owned(),
         &state_cookie.value().to_owned(),
     )
     .await?;
@@ -74,10 +79,10 @@ pub async fn post_authorize_handler(
 ) -> Result<(PrivateCookieJar, TmsResponse<()>), AppError> {
     let mut tx = app_state.db_pool.begin().await?;
     let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
+    tx.commit().await?;
 
     match idp {
         Ok(idp) => {
-            tx.commit().await?;
             let oauth_state = OAuthState {
                 idp_id: form_data.idp_id.clone(),
                 exp: SystemTime::now()
@@ -87,7 +92,7 @@ pub async fn post_authorize_handler(
                     + 300000,
             };
 
-            let encoded_state = match encode_state(oauth_state).await {
+            let encoded_state = match encode_state(&app_state.db_pool, oauth_state).await {
                 Ok(state_string) => state_string,
                 Err(error) => return Err(Internal(error.to_string()).into()),
             };
@@ -108,7 +113,10 @@ pub async fn post_authorize_handler(
             // TODO:  make a real nonce
             let location = Url::parse_with_params(&idp.identity_redirect_url, query_params)?;
 
-            let updated_jar = jar.add((get_state_cookie_path(), encoded_state));
+            let client_id = "tms_test_client_id";
+            let updated_jar = jar
+                .add((STATE_COOKIE_PATH, encoded_state))
+                .add((CLIENT_ID_COOKIE_PATH, client_id));
 
             let mut headers = HashMap::new();
             headers.insert("location".to_string(), location.to_string());
@@ -124,9 +132,6 @@ pub async fn post_authorize_handler(
             ))
         }
 
-        Err(error) => {
-            tx.rollback().await?;
-            Err(BadRequest(error.to_string()).into())
-        }
+        Err(error) => Err(BadRequest(error.to_string()).into()),
     }
 }

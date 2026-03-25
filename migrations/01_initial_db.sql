@@ -17,6 +17,15 @@ CREATE TABLE IF NOT EXISTS clients (
         id                      TEXT    PRIMARY KEY     NOT NULL,
         name                    TEXT                    NOT NULL,
         secret                  TEXT                    NOT NULL,
+        jwt_public_key          TEXT                    NOT NULL,
+        jwt_private_key         TEXT                    NOT NULL,
+        created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+        updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+);
+
+CREATE TABLE IF NOT EXISTS configuration (
+        config_name             TEXT    PRIMARY KEY     NOT NULL,
+        config_value            JSONB                   NOT NULL,
         created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
         updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
