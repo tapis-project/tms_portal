@@ -30,3 +30,5 @@ VALUES ('globus_idp3', 'Globus IDP', 'aab240d2-2df2-42d4-a67b-eb268076fa9d',
 'https://auth.globus.org/jwk.json', '',
 'openid profile email');
 
+INSERT INTO clients (id, name, secret) 
+VALUES('tms_test_client_id', 'Tms Test Client', 'tms_test_client_secret');

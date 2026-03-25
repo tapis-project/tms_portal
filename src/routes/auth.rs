@@ -43,6 +43,12 @@ pub async fn get_callback_handler(
     jar: PrivateCookieJar,
     query_params: Query<AuthCodeQueryParams>,
 ) -> Result<TmsResponse<TokenResponse>, AppError> {
+    tracing::warn!(
+        "OAuth2 callback query code: {0}, state: {1}",
+        &query_params.code,
+        &query_params.state
+    );
+
     let Some(state_cookie) = jar.get(&get_state_cookie_path()) else {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
     };

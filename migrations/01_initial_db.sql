@@ -12,3 +12,11 @@ CREATE TABLE IF NOT EXISTS idps (
         created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
         updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
+
+CREATE TABLE IF NOT EXISTS clients (
+        id                      TEXT    PRIMARY KEY     NOT NULL,
+        name                    TEXT                    NOT NULL,
+        secret                  TEXT                    NOT NULL,
+        created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+        updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+);

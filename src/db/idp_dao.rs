@@ -15,9 +15,9 @@ pub struct Idp {
     pub oauth2_token_url: String,
     pub oauth2_jwks_url: Option<String>,
     pub oidc_user_info_url: Option<String>,
+    pub created: PrimitiveDateTime,
     pub oauth2_public_key: Option<String>,
     pub scope: Option<String>,
-    pub created: PrimitiveDateTime,
     pub updated: PrimitiveDateTime,
 }
 

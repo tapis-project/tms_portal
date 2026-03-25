@@ -9,12 +9,18 @@ mod utils;
 
 use crate::config::init_db;
 use crate::routes::auth;
+//use crate::routes::auth_middleware::AuthLayer;
+use crate::routes::auth_middleware::AuthLayer;
 use axum::extract::FromRef;
 use axum::Router;
 use axum_extra::extract::cookie::Key;
 use sqlx::PgPool;
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
+use tracing::instrument;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct AppState {
     // that holds the key used to encrypt cookies
     key: Key,
@@ -28,9 +34,12 @@ impl FromRef<AppState> for Key {
 }
 
 #[tokio::main]
+#[instrument]
 async fn main() {
     // Initialize tracing
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
 
     // TODO: move this to some kind of runtime params thing
     let database_url = std::env::var("TMS_DATABASE_URL").expect("TMS_DATABASE_URL must be set");
@@ -53,10 +62,15 @@ async fn main() {
     // build our application with a single route
     let app = Router::new()
         .merge(auth::router().await)
-        .with_state(state)
-        //        .layer(AuthLayer)
-        //      .layer(LoggingLayer);
-;
+        //        .with_state(state)
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(AuthLayer::new(state.clone())), //                .layer(AuthLayer::new()),
+        )
+        .with_state(state);
+    //        .layer(AuthLayer)
+    //      .layer(LoggingLayer);
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
