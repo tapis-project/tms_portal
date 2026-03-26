@@ -60,7 +60,7 @@ async fn main() {
 
     // build our application with a single route
     let app = Router::new()
-        .merge(auth::router().await)
+        .merge(auth::router(&state).await)
         //        .with_state(state)
         .layer(
             ServiceBuilder::new()
