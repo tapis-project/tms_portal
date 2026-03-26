@@ -9,8 +9,6 @@ mod utils;
 
 use crate::config::init_db;
 use crate::routes::auth;
-//use crate::routes::auth_middleware::AuthLayer;
-use crate::routes::auth_middleware::AuthLayer;
 use axum::extract::FromRef;
 use axum::Router;
 use axum_extra::extract::cookie::Key;
@@ -60,13 +58,8 @@ async fn main() {
 
     // build our application with a single route
     let app = Router::new()
-        .merge(auth::router(&state).await)
-        //        .with_state(state)
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(AuthLayer::new(state.clone())), //                .layer(AuthLayer::new()),
-        )
+        .merge(auth::router().await)
+        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
