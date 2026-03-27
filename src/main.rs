@@ -16,6 +16,7 @@ use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
+use url::Url;
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -38,15 +39,28 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    // TODO: move this to some kind of runtime params thing
-    let database_url = std::env::var("TMS_DATABASE_URL").expect("TMS_DATABASE_URL must be set");
+    let database_host = std::env::var("TMS_AUTH_DB_HOST").expect("TMS_AUTH_DB_HOST must be set");
+    let database_port = std::env::var("TMS_AUTH_DB_PORT").unwrap_or(String::from("5432"));
+    let database_name = std::env::var("TMS_AUTH_DB_NAME").unwrap_or(String::from("tms_auth_db"));
+    let database_user = std::env::var("TMS_AUTH_DB_USER").unwrap_or(String::from("tms_auth_user"));
+    let database_password =
+        std::env::var("TMS_AUTH_DB_PASSWORD").expect("TMS_AUTH_DB_PASSWORD must be set");
+
+    let database_url_string = format!(
+        "postgres://{0}:{1}@{2}:{3}/{4}",
+        &database_user, &database_password, &database_host, &database_port, &database_name
+    );
+
+    // just parsing the db url to determine if it seems valid.  We actually use database_url_string.
+    let database_url = Url::parse(database_url_string.as_str())
+        .expect(format!("The database url {0} is not valid", &database_url_string).as_str());
 
     let state = AppState {
         // Generate a secure key
         //
         // TODO:  You probably don't wanna generate a new one each time the app starts though
         key: Key::generate(),
-        db_pool: init_db(&database_url).await,
+        db_pool: init_db(&database_url_string).await,
     };
 
     println!("Running sqlx/Postgresql migration");
