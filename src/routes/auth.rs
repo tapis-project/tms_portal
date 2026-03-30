@@ -5,6 +5,7 @@ use crate::services::oauth_service::OAuthState;
 use crate::services::oauth_service::{encode_state, get_idps, handle_callback, IdpResponse};
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
+use crate::utils::basic_auth::{basic_auth_from_header_value, basic_auth_is_authorized};
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::State;
@@ -12,6 +13,9 @@ use axum::response::{Response, ResponseParts};
 use axum::routing::post;
 use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::PrivateCookieJar;
+use axum_extra::headers::authorization::Basic;
+use axum_extra::headers::{Authorization, UserAgent};
+use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
@@ -76,9 +80,13 @@ pub async fn callback_handler(
 #[debug_handler]
 pub async fn authorize_handler(
     State(app_state): State<AppState>,
+    TypedHeader(authorization_header): TypedHeader<Authorization<Basic>>,
     jar: PrivateCookieJar,
     form_data: Form<AuthorizeByIdpRequest>,
 ) -> Result<(PrivateCookieJar, TmsResponse<()>), AppError> {
+    let id = authorization_header.0.username().to_string();
+    let secret = authorization_header.0.password().to_string();
+    basic_auth_is_authorized(&app_state.db_pool, &id, &secret).await?;
     let mut tx = app_state.db_pool.begin().await?;
     let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
     tx.commit().await?;
