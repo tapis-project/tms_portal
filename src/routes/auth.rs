@@ -1,3 +1,4 @@
+use crate::db::config_dao::db_get_http_config;
 use crate::db::idp_dao::db_get_idp_by_id;
 use crate::models::api::{Entity, TmsResponse, TokenResponse};
 use crate::models::oauth2::{AuthCodeQueryParams, AuthorizeByIdpRequest};
@@ -8,18 +9,20 @@ use crate::services::service_error::ServiceError::{BadRequest, Internal, Unautho
 use crate::utils::basic_auth::{basic_auth_from_header_value, basic_auth_is_authorized};
 use crate::AppState;
 use anyhow::Result;
-use axum::extract::State;
-use axum::response::{Response, ResponseParts};
+use axum::extract::{Request, State};
+use axum::http::HeaderMap;
+use axum::response::{Html, Response, ResponseParts};
 use axum::routing::post;
 use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::headers::authorization::Basic;
-use axum_extra::headers::{Authorization, UserAgent};
+use axum_extra::headers::{authorization, Authorization, UserAgent};
 use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
+use std::fs::read_to_string;
 use std::time::SystemTime;
 use url::Url;
 
@@ -31,6 +34,7 @@ pub async fn router() -> Router<AppState> {
         .route("/oauth2/idp", get(get_idp_handler))
         .route("/oauth2/authorize", post(authorize_handler))
         .route("/oauth2/authorize", get(authorize_handler))
+    //        .route("/oauth2/logon", get(logon_handler))
 }
 
 #[debug_handler]
@@ -80,12 +84,29 @@ pub async fn callback_handler(
 #[debug_handler]
 pub async fn authorize_handler(
     State(app_state): State<AppState>,
-    TypedHeader(authorization_header): TypedHeader<Authorization<Basic>>,
+    authorization_header: Option<TypedHeader<Authorization<Basic>>>,
     jar: PrivateCookieJar,
+    // headers: HeaderMap,
     form_data: Form<AuthorizeByIdpRequest>,
 ) -> Result<(PrivateCookieJar, TmsResponse<()>), AppError> {
-    let id = authorization_header.0.username().to_string();
-    let secret = authorization_header.0.password().to_string();
+    // let authorization_header = headers.get("Authorization");
+    // Authorization::decode(auth)
+    // let (client_id, client_secret) = match authorization_header {
+    //     Some(auth_header) => {
+    //         TypedHeader::from_request_parts();
+    //     }
+    //     _ => ("tms", "tms"),
+    // };
+
+    let (id, secret) = match authorization_header {
+        Some(header) => (
+            header.0.username().to_owned(),
+            header.0.password().to_owned(),
+        ),
+        _ => ("tms".to_string(), "tms".to_string()),
+    };
+    // let id = authorization_header.0.username().to_string();
+    // let secret = authorization_header.0.password().to_string();
     basic_auth_is_authorized(&app_state.db_pool, &id, &secret).await?;
     let mut tx = app_state.db_pool.begin().await?;
     let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
@@ -107,10 +128,13 @@ pub async fn authorize_handler(
                 Err(error) => return Err(Internal(error.to_string()).into()),
             };
 
+            let mut tx = app_state.db_pool.begin().await?;
+            let http_config = db_get_http_config(&mut tx).await?;
+            tx.commit().await?;
             let mut query_params = vec![
                 ("response_type", "code"),
                 ("client_id", &idp.client_id),
-                ("redirect_uri", "http://localhost:8080/oauth2/callback"),
+                ("redirect_uri", &http_config.callback_url),
                 ("state", &encoded_state),
                 ("nonce", "TODO: Add a real nonce"),
                 ("access_type", "offline"),
@@ -146,4 +170,9 @@ pub async fn authorize_handler(
 
         Err(error) => Err(BadRequest(error.to_string()).into()),
     }
+}
+
+pub async fn logon_handler() -> (StatusCode, Html<String>) {
+    let page = read_to_string("./logon.html");
+    (StatusCode::OK, Html(page.unwrap()))
 }

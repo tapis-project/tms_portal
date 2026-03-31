@@ -1,5 +1,5 @@
 use crate::db::client_dao::db_get_client_by_id;
-use crate::db::config_dao::get_state_key;
+use crate::db::config_dao::db_get_state_key;
 use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
@@ -91,7 +91,7 @@ pub async fn handle_callback(
 
 pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthState> {
     let mut tx = pool.begin().await?;
-    let keys = get_state_key(&mut tx).await?;
+    let keys = db_get_state_key(&mut tx).await?;
     tx.commit().await?;
     let decoding_key = Some(DecodingKey::from_rsa_pem(&keys.public_key.as_bytes())?);
 
@@ -104,7 +104,7 @@ pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthS
 pub async fn encode_state(pool: &PgPool, oauth_state: OAuthState) -> Result<String> {
     let header = Header::new(Algorithm::RS256);
     let mut tx = pool.begin().await?;
-    let keys = get_state_key(&mut tx).await?;
+    let keys = db_get_state_key(&mut tx).await?;
     tx.commit().await?;
     let key = EncodingKey::from_rsa_pem(&keys.private_key.as_bytes())?;
 

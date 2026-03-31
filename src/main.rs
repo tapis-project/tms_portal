@@ -73,6 +73,7 @@ async fn main() {
     // build our application with a single route
     let app = Router::new()
         .merge(auth::router().await)
+        //        .merge(well_known::router().await)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
