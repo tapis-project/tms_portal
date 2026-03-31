@@ -1,5 +1,5 @@
 use crate::db::client_dao::db_get_client_by_id;
-use crate::db::config_dao::db_get_state_key;
+use crate::db::config_dao::{db_get_http_config, db_get_state_key};
 use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
@@ -80,7 +80,7 @@ pub async fn handle_callback(
         .context("Unable to get idp for database")?;
     tx.commit().await?;
 
-    let token: AuthorizationCodeResponse = exchange_code_for_token(&idp, code).await?;
+    let token: AuthorizationCodeResponse = exchange_code_for_token(&pool, &idp, code).await?;
     dbg!(&token);
 
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
@@ -113,18 +113,17 @@ pub async fn encode_state(pool: &PgPool, oauth_state: OAuthState) -> Result<Stri
         .await
 }
 
-pub async fn exchange_code_for_token<R>(idp: &Idp, code: &String) -> Result<R>
+pub async fn exchange_code_for_token<R>(pool: &PgPool, idp: &Idp, code: &String) -> Result<R>
 where
     R: for<'a> Deserialize<'a>,
 {
+    let mut tx = pool.begin().await?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    tx.commit().await?;
+
     let form_params = [
         ("grant_type", "authorization_code".to_string()),
-        //        ("client_id", get_client_id()),
-        //        ("client_secret", get_client_secret()),
-        (
-            "redirect_uri",
-            "http://localhost:8080/oauth2/callback".to_string(),
-        ),
+        ("redirect_uri", http_config.callback_url.clone()),
         ("code", code.to_owned()),
     ];
     let client = reqwest::Client::new();
