@@ -13,14 +13,22 @@ CREATE TABLE IF NOT EXISTS idps (
         updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
 
-CREATE TABLE IF NOT EXISTS clients (
-        id                      TEXT    PRIMARY KEY     NOT NULL,
-        name                    TEXT                    NOT NULL,
-        secret                  TEXT                    NOT NULL,
+CREATE TABLE IF NOT EXISTS keys (
+        kid                     TEXT    PRIMARY KEY     NOT NULL,
         jwt_public_key          TEXT                    NOT NULL,
         jwt_private_key         TEXT                    NOT NULL,
         created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
         updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+);
+
+CREATE TABLE IF NOT EXISTS clients (
+        id                      TEXT    PRIMARY KEY     NOT NULL,
+        name                    TEXT                    NOT NULL,
+        secret                  TEXT                    NOT NULL,
+        kid                     TEXT                    NOT NULL,
+        created                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+        updated                 TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+        constraint              fk_kid  FOREIGN KEY     (kid) REFERENCES keys(kid)
 );
 
 CREATE TABLE IF NOT EXISTS configuration (

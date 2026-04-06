@@ -7,10 +7,11 @@ use jsonwebtoken::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::str::FromStr;
 
 pub struct JwtDecoderBuilder {
     jwks_url: Option<String>,
-    public_key: Option<DecodingKey>,
+    public_key_bytes: Option<Vec<u8>>,
     audience: Option<HashSet<String>>,
 }
 
@@ -18,7 +19,7 @@ impl JwtDecoderBuilder {
     pub fn builder() -> JwtDecoderBuilder {
         JwtDecoderBuilder {
             jwks_url: None,
-            public_key: None,
+            public_key_bytes: None,
             audience: None,
         }
     }
@@ -29,10 +30,8 @@ impl JwtDecoderBuilder {
         self
     }
 
-    pub fn public_key(mut self, public_key: &Option<DecodingKey>) -> Self {
-        if let Some(public_key) = public_key {
-            self.public_key = Some(public_key.clone());
-        }
+    pub fn public_key(mut self, key_bytes: &[u8]) -> Self {
+        self.public_key_bytes = Some(key_bytes.to_vec());
         self
     }
 
@@ -66,8 +65,8 @@ impl JwtDecoderBuilder {
                 }
             }
 
-            None => match &self.public_key {
-                Some(public_key) => public_key.to_owned(),
+            None => match &self.public_key_bytes {
+                Some(public_key) => DecodingKey::from_rsa_pem(public_key.as_ref())?,
                 None => {
                     return Err(Internal("No key available for decoding JWT".to_string()).into());
                 }
@@ -94,23 +93,50 @@ pub async fn get_public_key(pub_key_url: &String) -> Result<JwkSet> {
 }
 
 pub struct JwtEncoderBuilder<T> {
-    header: Header,
     claims: T,
-    encoding_key: EncodingKey,
+    algorithm_name: String,
+    kid: String,
+    encoding_key_bytes: Vec<u8>,
 }
 
 impl<T> JwtEncoderBuilder<T>
 where
     T: Serialize,
 {
-    pub fn builder(header: Header, claims: T, encoding_key: EncodingKey) -> JwtEncoderBuilder<T> {
+    pub fn builder(
+        claims: T,
+        encoding_key_bytes: &[u8],
+        algorithm_name: &str,
+        kid: &str,
+    ) -> JwtEncoderBuilder<T> {
         JwtEncoderBuilder {
-            header,
+            algorithm_name: String::from(algorithm_name),
+            kid: String::from(kid),
             claims,
-            encoding_key,
+            encoding_key_bytes: encoding_key_bytes.to_vec(),
         }
     }
     pub async fn encode(&self) -> Result<String> {
-        encode(&self.header, &self.claims, &self.encoding_key).context("Error encodeing JWT")
+        let encoding_key = EncodingKey::from_rsa_pem(&self.encoding_key_bytes)?;
+        let alg = Algorithm::from_str(&self.algorithm_name)?;
+        let header = Header {
+            typ: Some(String::from("JWT")),
+            alg,
+            kid: Some(self.kid.clone()),
+            cty: None,
+            jku: None,
+            jwk: None,
+            x5u: None,
+            x5c: None,
+            x5t: None,
+            x5t_s256: None,
+            crit: None,
+            enc: None,
+            zip: None,
+            url: None,
+            nonce: None,
+            extras: Default::default(),
+        };
+        encode(&header, &self.claims, &encoding_key).context("Error encoding JWT")
     }
 }

@@ -14,10 +14,13 @@ LABEL maintainer="CIC Support <cicsupport@tacc.utexas.edu>"
 RUN apt update 
 
 # Install less. 
-RUN apt install -y less 
+RUN apt-get install -y less 
 
 # Install vi.
-RUN apt install -y vim-tiny
+RUN apt-get install -y vim-tiny
+
+# Install ca certs
+RUN apt-get install -y ca-certificates
 
 # Add user tms_auth
 RUN useradd -m tms_auth

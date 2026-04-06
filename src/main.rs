@@ -8,7 +8,7 @@ mod services;
 mod utils;
 
 use crate::config::init_db;
-use crate::routes::auth;
+use crate::routes::{auth, well_known};
 use axum::extract::FromRef;
 use axum::Router;
 use axum_extra::extract::cookie::Key;
@@ -52,7 +52,7 @@ async fn main() {
     );
 
     // just parsing the db url to determine if it seems valid.  We actually use database_url_string.
-    let database_url = Url::parse(database_url_string.as_str())
+    let _database_url = Url::parse(database_url_string.as_str())
         .expect(format!("The database url {0} is not valid", &database_url_string).as_str());
 
     let state = AppState {
@@ -73,7 +73,7 @@ async fn main() {
     // build our application with a single route
     let app = Router::new()
         .merge(auth::router().await)
-        //        .merge(well_known::router().await)
+        .merge(well_known::router().await)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();

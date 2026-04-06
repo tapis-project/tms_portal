@@ -6,23 +6,21 @@ use crate::services::oauth_service::OAuthState;
 use crate::services::oauth_service::{encode_state, get_idps, handle_callback, IdpResponse};
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use crate::utils::basic_auth::{basic_auth_from_header_value, basic_auth_is_authorized};
+use crate::utils::basic_auth::basic_auth_is_authorized;
 use crate::AppState;
 use anyhow::Result;
-use axum::extract::{Request, State};
+use axum::extract::State;
 use axum::http::HeaderMap;
-use axum::response::{Html, Response, ResponseParts};
 use axum::routing::post;
 use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::headers::authorization::Basic;
-use axum_extra::headers::{authorization, Authorization, UserAgent};
+use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
-use std::fs::read_to_string;
 use std::time::SystemTime;
 use url::Url;
 
@@ -86,19 +84,10 @@ pub async fn authorize_handler(
     State(app_state): State<AppState>,
     authorization_header: Option<TypedHeader<Authorization<Basic>>>,
     jar: PrivateCookieJar,
-    // headers: HeaderMap,
+    headers: HeaderMap,
     form_data: Form<AuthorizeByIdpRequest>,
 ) -> Result<(PrivateCookieJar, TmsResponse<()>), AppError> {
-    // let authorization_header = headers.get("Authorization");
-    // Authorization::decode(auth)
-    // let (client_id, client_secret) = match authorization_header {
-    //     Some(auth_header) => {
-    //         TypedHeader::from_request_parts();
-    //     }
-    //     _ => ("tms", "tms"),
-    // };
-
-    let (id, secret) = match authorization_header {
+    let (client_id, client_secret) = match authorization_header {
         Some(header) => (
             header.0.username().to_owned(),
             header.0.password().to_owned(),
@@ -107,7 +96,7 @@ pub async fn authorize_handler(
     };
     // let id = authorization_header.0.username().to_string();
     // let secret = authorization_header.0.password().to_string();
-    basic_auth_is_authorized(&app_state.db_pool, &id, &secret).await?;
+    basic_auth_is_authorized(&app_state.db_pool, &client_id, &client_secret).await?;
     let mut tx = app_state.db_pool.begin().await?;
     let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
     tx.commit().await?;
@@ -131,10 +120,12 @@ pub async fn authorize_handler(
             let mut tx = app_state.db_pool.begin().await?;
             let http_config = db_get_http_config(&mut tx).await?;
             tx.commit().await?;
+            let callback_url = &http_config.get_callback_url();
+
             let mut query_params = vec![
                 ("response_type", "code"),
                 ("client_id", &idp.client_id),
-                ("redirect_uri", &http_config.callback_url),
+                ("redirect_uri", callback_url),
                 ("state", &encoded_state),
                 ("nonce", "TODO: Add a real nonce"),
                 ("access_type", "offline"),
@@ -147,7 +138,6 @@ pub async fn authorize_handler(
             // TODO:  make a real nonce
             let location = Url::parse_with_params(&idp.identity_redirect_url, query_params)?;
 
-            let client_id = "tms_test_client_id";
             let updated_jar = jar
                 .add((STATE_COOKIE_PATH, encoded_state))
                 .add((CLIENT_ID_COOKIE_PATH, client_id));
@@ -172,7 +162,9 @@ pub async fn authorize_handler(
     }
 }
 
-pub async fn logon_handler() -> (StatusCode, Html<String>) {
-    let page = read_to_string("./logon.html");
-    (StatusCode::OK, Html(page.unwrap()))
-}
+// use axum::response::Html;
+// use std::fs::read_to_string;
+// pub async fn logon_handler() -> (StatusCode, Html<String>) {
+//     let page = read_to_string("./logon.html");
+//     (StatusCode::OK, Html(page.unwrap()))
+// }

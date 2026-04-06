@@ -1,15 +1,19 @@
 use crate::db::client_dao::db_get_client_by_id;
-use crate::db::config_dao::{db_get_http_config, db_get_state_key};
+use crate::db::config_dao::{db_get_http_config, db_get_state_key_id};
 use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
+use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
 use anyhow::{Context, Result};
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header};
+use jsonwebtoken::{Algorithm, Header};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
+use tracing::debug;
 use uuid::Uuid;
+
+const DEFAULT_ALGORITHM: &str = "RS256";
 
 #[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
 pub struct IdpResponse {
@@ -91,41 +95,48 @@ pub async fn handle_callback(
 
 pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthState> {
     let mut tx = pool.begin().await?;
-    let keys = db_get_state_key(&mut tx).await?;
+    let state_key = db_get_state_key_id(&mut tx).await?;
+    let keys = db_get_key_by_id(&mut tx, &state_key.kid).await?;
     tx.commit().await?;
-    let decoding_key = Some(DecodingKey::from_rsa_pem(&keys.public_key.as_bytes())?);
+    // let decoding_key = Some(DecodingKey::from_rsa_pem(&keys.jwt_public_key.as_bytes())?);
 
     JwtDecoderBuilder::builder()
-        .public_key(&decoding_key)
+        .public_key(&keys.jwt_public_key.as_bytes())
         .decode::<OAuthState>(&state_string)
         .await
 }
 
 pub async fn encode_state(pool: &PgPool, oauth_state: OAuthState) -> Result<String> {
-    let header = Header::new(Algorithm::RS256);
     let mut tx = pool.begin().await?;
-    let keys = db_get_state_key(&mut tx).await?;
+    let state_key = db_get_state_key_id(&mut tx).await?;
+    let keys = db_get_key_by_id(&mut tx, &state_key.kid).await?;
     tx.commit().await?;
-    let key = EncodingKey::from_rsa_pem(&keys.private_key.as_bytes())?;
 
-    JwtEncoderBuilder::builder(header, oauth_state, key)
-        .encode()
-        .await
+    JwtEncoderBuilder::builder(
+        oauth_state,
+        &keys.jwt_private_key.as_bytes(),
+        DEFAULT_ALGORITHM,
+        keys.kid.as_str(),
+    )
+    .encode()
+    .await
 }
 
 pub async fn exchange_code_for_token<R>(pool: &PgPool, idp: &Idp, code: &String) -> Result<R>
 where
     R: for<'a> Deserialize<'a>,
 {
+    debug!("exchange_code_for_token called");
     let mut tx = pool.begin().await?;
     let http_config = db_get_http_config(&mut tx).await?;
     tx.commit().await?;
-
+    let callback_url = &http_config.get_callback_url();
     let form_params = [
-        ("grant_type", "authorization_code".to_string()),
-        ("redirect_uri", http_config.callback_url.clone()),
-        ("code", code.to_owned()),
+        ("grant_type", &"authorization_code".to_string()),
+        ("redirect_uri", callback_url),
+        ("code", &code.to_owned()),
     ];
+    debug!("Form params: {:?}", form_params);
     let client = reqwest::Client::new();
     let response = client
         .post(&idp.oauth2_token_url)
@@ -134,6 +145,7 @@ where
         .send()
         .await
         .context("Error getting response body")?;
+    debug!("Response from exchange code: {:?}", response);
 
     let token_string = response
         .text()
@@ -148,14 +160,11 @@ where
     T: for<'a> Deserialize<'a>,
 {
     let audience = HashSet::from([idp.client_id.to_owned()]);
-    let public_key = match idp.oauth2_public_key {
-        Some(ref key) => Some(DecodingKey::from_rsa_pem(key.as_bytes())?),
-        None => None,
-    };
-
-    JwtDecoderBuilder::builder()
-        .jwks_url(&idp.oauth2_jwks_url)
-        .public_key(&public_key)
+    let mut builder = JwtDecoderBuilder::builder().jwks_url(&idp.oauth2_jwks_url);
+    if let Some(key) = &idp.oauth2_public_key {
+        builder = builder.public_key(&key.as_bytes());
+    }
+    builder
         .audience(audience)
         .decode(id_token)
         .await
@@ -185,10 +194,11 @@ pub async fn make_auth_token(
     client_id: &String,
     claims: HashMap<String, Value>,
 ) -> Result<String> {
-    let header = Header::new(Algorithm::RS256);
     let mut tx = db_pool.begin().await?;
-    let client = db_get_client_by_id(&mut tx, &client_id).await?;
-    let encoding_key = EncodingKey::from_rsa_pem(&client.jwt_private_key.into_bytes())?;
+    let client = db_get_client_by_id(&mut tx, client_id).await?;
+    let kid = &client.kid;
+    let keys = db_get_key_by_id(&mut tx, &kid).await?;
+    tx.commit().await?;
     let tms_token_clams = TmsTokenClaims {
         jti: Uuid::new_v4().to_string(),
         iss: String::from("TODO: .."),
@@ -202,7 +212,12 @@ pub async fn make_auth_token(
     };
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?
-    JwtEncoderBuilder::builder(header, tms_token_clams, encoding_key)
-        .encode()
-        .await
+    JwtEncoderBuilder::builder(
+        tms_token_clams,
+        keys.jwt_private_key.as_bytes(),
+        DEFAULT_ALGORITHM,
+        kid,
+    )
+    .encode()
+    .await
 }

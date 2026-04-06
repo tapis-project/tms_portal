@@ -10,8 +10,7 @@ pub struct Client {
     pub name: String,
     pub created: PrimitiveDateTime,
     pub updated: PrimitiveDateTime,
-    pub jwt_private_key: String,
-    pub jwt_public_key: String,
+    pub kid: String,
 }
 
 impl From<&PgRow> for Client {
@@ -22,8 +21,7 @@ impl From<&PgRow> for Client {
             name: row.get("name"),
             created: row.get("created"),
             updated: row.get("updated"),
-            jwt_public_key: row.get("jwt_public_key"),
-            jwt_private_key: row.get("jwt_private_key"),
+            kid: row.get("kid"),
         }
     }
 }
@@ -31,7 +29,7 @@ pub async fn db_get_client_by_id<'a>(
     tx: &mut PgTransaction<'a>,
     id: &String,
 ) -> anyhow::Result<Client> {
-    let row = query("select id, name, secret, jwt_public_key, jwt_private_key, created, updated from clients where id = $1")
+    let row = query("select id, name, secret, kid, created, updated from clients where id = $1")
         .bind(id)
         .fetch_one(&mut **tx)
         .await
@@ -48,15 +46,17 @@ pub async fn db_get_client_by_credentials<'a>(
     id: &String,
     secret: &String,
 ) -> anyhow::Result<Client> {
-    let row = query("select id, name, secret, jwt_public_key, jwt_private_key, created, updated from clients where id = $1 and secret = $2")
-        .bind(id)
-        .bind(secret)
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(|error| match error {
-            sqlx::Error::RowNotFound => NotFound(format!("Client id {} not found", id)).into(),
-            _ => anyhow::anyhow!(error),
-        })?;
+    let row = query(
+        "select id, name, secret, kid, created, updated from clients where id = $1 and secret = $2",
+    )
+    .bind(id)
+    .bind(secret)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|error| match error {
+        sqlx::Error::RowNotFound => NotFound(format!("Client id {} not found", id)).into(),
+        _ => anyhow::anyhow!(error),
+    })?;
     dbg!(&row);
     Ok(Client::from(&row))
 }
