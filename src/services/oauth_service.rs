@@ -1,6 +1,6 @@
 use crate::db::client_dao::db_get_client_by_id;
-use crate::db::config_dao::{db_get_http_config, db_get_state_key_id};
-use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_state_key_id};
+use crate::db::idp_dao::{Idp, db_get_idp_by_id, db_get_idps};
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
@@ -10,10 +10,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::debug;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 use uuid::Uuid;
 
 const DEFAULT_ALGORITHM: &str = "RS256";
+
+const CLAIM_SUB: &str = "sub";
+const CLAIM_IDP: &str = "identity_provider";
+const CLAIM_NAME: &str = "name";
+const CLAIM_IDP_DISPLAY_NAME: &str = "identity_provider_display_name";
+const CLAIM_ORGANIZATION: &str = "organization";
+const CLAIM_BOGUS: &str = "bogus";
 
 #[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
 pub struct IdpResponse {
@@ -173,20 +182,31 @@ where
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TmsTokenClaims {
-    jti: String,
-    iss: String,
-    sub: String,
+    jti: Value,
+    iss: Value,
+    sub: Value,
     #[serde(rename = "tms/token_type")]
-    tms_token_type: String,
+    tms_token_type: Value,
     #[serde(rename = "tms/username")]
-    tms_username: String,
+    tms_username: Value,
     #[serde(rename = "tms/client_id")]
-    tms_client_id: String,
+    tms_client_id: Value,
     #[serde(rename = "tms/grant_type")]
-    tms_grant_type: String,
+    tms_grant_type: Value,
     #[serde(rename = "tms/account_type")]
-    tms_account_type: String,
-    exp: String,
+    tms_account_type: Value,
+    #[serde(rename = "tms/name", skip_serializing_if = "Option::is_none")]
+    tms_name: Option<Value>,
+    #[serde(
+        rename = "tms/identity_provider_display_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    tms_idp_display_name: Option<Value>,
+    #[serde(rename = "tms/organization", skip_serializing_if = "Option::is_none")]
+    tms_organization: Option<Value>,
+    #[serde(rename = "tms/bogus", skip_serializing_if = "Option::is_none")]
+    tms_bogus: Option<Value>,
+    exp: Value,
 }
 
 pub async fn make_auth_token(
@@ -195,20 +215,38 @@ pub async fn make_auth_token(
     claims: HashMap<String, Value>,
 ) -> Result<String> {
     let mut tx = db_pool.begin().await?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    let jwt_config = db_get_jwt_config(&mut tx).await?;
     let client = db_get_client_by_id(&mut tx, client_id).await?;
     let kid = &client.kid;
     let keys = db_get_key_by_id(&mut tx, &kid).await?;
     tx.commit().await?;
+
+    let issuer = http_config.base_url;
+    let subject = get_string_claim(&claims, CLAIM_SUB).await?;
+    let idp = get_string_claim(&claims, CLAIM_IDP).await?;
+    let tms_subject = format!("{0}@{1}", &subject, &idp);
+    let tms_username = tms_subject.clone();
+
+    let jwt_expiration_minutes = jwt_config.default_expiration_minutes.parse()?;
+    let expiration = SystemTime::now() + Duration::from_mins(jwt_expiration_minutes);
+
     let tms_token_clams = TmsTokenClaims {
-        jti: Uuid::new_v4().to_string(),
-        iss: String::from("TODO: .."),
-        sub: String::from("TODO: .."),
-        tms_token_type: String::from("access"),
-        tms_username: String::from("TODO: .."),
-        tms_client_id: String::from("TODO: .."),
-        tms_grant_type: String::from("password"),
-        tms_account_type: String::from("user"),
-        exp: String::from("TODO: .."),
+        jti: Value::from(Uuid::new_v4().to_string()),
+        iss: Value::from(issuer),
+        sub: Value::from(tms_subject),
+        tms_token_type: Value::from("access"),
+        tms_username: Value::from(tms_username),
+        tms_client_id: Value::from(client_id.clone()),
+        tms_grant_type: Value::from("password"),
+        tms_account_type: Value::from("user"),
+        tms_name: claims.get(CLAIM_NAME).map(|value| (*value).clone()),
+        tms_idp_display_name: claims
+            .get(CLAIM_IDP_DISPLAY_NAME)
+            .map(|value| (*value).clone()),
+        tms_organization: claims.get(CLAIM_ORGANIZATION).map(|value| (*value).clone()),
+        tms_bogus: claims.get(CLAIM_BOGUS).map(|value| (*value).clone()),
+        exp: Value::from(expiration.duration_since(UNIX_EPOCH)?.as_secs()),
     };
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?
@@ -220,4 +258,15 @@ pub async fn make_auth_token(
     )
     .encode()
     .await
+}
+async fn get_string_claim(claims: &HashMap<String, Value>, name: &str) -> Result<String> {
+    let value = claims.get(name).ok_or(Unauthorized(format!(
+        "Unable to find '{0}' claim in identity token",
+        name
+    )))?;
+
+    let string_slice_value = value
+        .as_str()
+        .ok_or(Unauthorized(format!("Claim '{0}' is not a string", name)))?;
+    Ok(String::from(string_slice_value))
 }
