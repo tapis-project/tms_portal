@@ -6,6 +6,16 @@
 #   $TAG            the tag for image identification
 #
 ##########################################################################
+
+FROM node:24 AS node_build
+RUN npm install -g pnpm
+COPY ./client/package.json ./client/pnpm-lock.yaml /client/
+WORKDIR /client
+RUN pnpm install 
+COPY ./client/ /client/
+RUN pnpm run build
+
+
 FROM ubuntu:jammy
 
 LABEL maintainer="CIC Support <cicsupport@tacc.utexas.edu>"
@@ -30,6 +40,7 @@ USER tms_auth
 # Just copy the jars needed
 WORKDIR /home/tms_auth/app
 COPY --chown=tms_auth:tms_auth ./target/release/tms_authenticator ./
+COPY --from=node_build --chown=tms_auth:tms_auth /client/dist/ ./dist/
 RUN chmod +x ./tms_authenticator
 
 # Server port, debug port and jmx port
