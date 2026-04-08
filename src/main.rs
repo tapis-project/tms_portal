@@ -14,6 +14,7 @@ use axum::Router;
 use axum_extra::extract::cookie::Key;
 use sqlx::PgPool;
 use tower::ServiceBuilder;
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
 use url::Url;
@@ -68,14 +69,20 @@ async fn main() {
         .run(&state.db_pool)
         .await
         .unwrap();
-    println!("Server running at http://localhost:8080");
+
+    let port = 8080;
+
+    println!("Server running on port {0}", &port);
 
     // build our application with a single route
     let app = Router::new()
         .merge(auth::router().await)
         .merge(well_known::router().await)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
-        .with_state(state);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+        .with_state(state)
+        .nest_service("/dist", ServeDir::new("assets"));
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", &port))
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 }

@@ -32,7 +32,6 @@ pub async fn router() -> Router<AppState> {
         .route("/oauth2/idp", get(get_idp_handler))
         .route("/oauth2/authorize", post(authorize_handler))
         .route("/oauth2/authorize", get(authorize_handler))
-    //        .route("/oauth2/logon", get(logon_handler))
 }
 
 #[debug_handler]
@@ -161,10 +160,3 @@ pub async fn authorize_handler(
         Err(error) => Err(BadRequest(error.to_string()).into()),
     }
 }
-
-// use axum::response::Html;
-// use std::fs::read_to_string;
-// pub async fn logon_handler() -> (StatusCode, Html<String>) {
-//     let page = read_to_string("./logon.html");
-//     (StatusCode::OK, Html(page.unwrap()))
-// }

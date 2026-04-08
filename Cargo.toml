@@ -21,7 +21,7 @@ thiserror = "2.0.18"
 anyhow = "1.0.102"
 uuid = { version = "1.22.0", features = ["v4"] }
 tower = { version = "0.5.3" }
-tower-http = { version = "0.6.8", features = ["trace"] }
+tower-http = { version = "0.6.8", features = ["trace", "fs"] }
 tracing = "0.1.44"
 pin-project = "1.1.11"
 tracing-subscriber = "0.3.23"
