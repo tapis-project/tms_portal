@@ -80,7 +80,7 @@ async fn main() {
         .merge(well_known::router().await)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(state)
-        .nest_service("dist", ServeDir::new("/"));
+        .nest_service("/app", ServeDir::new("dist/assets"));
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", &port))
         .await
         .unwrap();
