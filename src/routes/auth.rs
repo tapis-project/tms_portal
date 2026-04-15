@@ -13,7 +13,7 @@ use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
-const TOKEN_COOKIE_NAME: &str = "token";
+const TOKEN_COOKIE_NAME: &str = "tmstoken";
 pub const STATE_COOKIE_NAME: &str = "state_cookie";
 const ROOT_COOKIE_PATH: &str = "/";
 pub async fn router() -> Router<AppState> {
