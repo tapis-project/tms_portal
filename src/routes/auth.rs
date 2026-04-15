@@ -13,9 +13,9 @@ use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
-
-const TOKEN_COOKIE_PATH: &str = "tms/token";
-const STATE_COOKIE_PATH: &str = "tms/oauth2/state_cookie";
+const TOKEN_COOKIE_NAME: &str = "token";
+pub const STATE_COOKIE_NAME: &str = "state_cookie";
+const ROOT_COOKIE_PATH: &str = "/";
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/oauth2/callback", get(callback_handler))
@@ -45,7 +45,7 @@ pub async fn callback_handler(
         &query_params.state
     );
 
-    let Some(state_cookie) = jar.get(&STATE_COOKIE_PATH) else {
+    let Some(state_cookie) = jar.get(STATE_COOKIE_NAME) else {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
     };
 
@@ -56,7 +56,9 @@ pub async fn callback_handler(
         &state_cookie.value().to_owned(),
     )
     .await?;
-    let c = Cookie::new(TOKEN_COOKIE_PATH, token);
+    let c = Cookie::build((TOKEN_COOKIE_NAME, token))
+        .path(ROOT_COOKIE_PATH)
+        .build();
     let updated_jar = jar.clone().add(c);
 
     let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;

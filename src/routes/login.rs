@@ -3,6 +3,7 @@ use crate::db::config_dao::db_get_http_config;
 use crate::db::idp_dao::db_get_idp_by_id;
 use crate::models::api::TmsResponse;
 use crate::models::oauth2::AuthorizeByIdpRequest;
+use crate::routes::auth::STATE_COOKIE_NAME;
 use crate::services::oauth_service::{encode_state, OAuthState};
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal};
@@ -12,6 +13,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{debug_handler, Form, Router};
+use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use axum_extra::headers::authorization::Basic;
 use axum_extra::headers::Authorization;
@@ -21,8 +23,8 @@ use base64::Engine;
 use std::collections::HashMap;
 use std::time::SystemTime;
 use url::Url;
+const ROOT_COOKIE_PATH: &str = "/";
 
-const STATE_COOKIE_PATH: &str = "tms/oauth2/state_cookie";
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/login", post(login_handler))
@@ -89,7 +91,8 @@ pub async fn login_handler(
             // TODO:  make a real nonce
             let location = Url::parse_with_params(&idp.identity_redirect_url, query_params)?;
 
-            let updated_jar = jar.add((STATE_COOKIE_PATH, encoded_state));
+            let updated_jar =
+                jar.add(Cookie::build((STATE_COOKIE_NAME, encoded_state)).path(ROOT_COOKIE_PATH));
 
             let mut headers = HashMap::new();
             headers.insert("location".to_string(), location.to_string());
