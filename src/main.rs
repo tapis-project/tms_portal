@@ -8,10 +8,10 @@ mod services;
 mod utils;
 
 use crate::config::init_db;
-use crate::routes::{auth, well_known};
+use crate::routes::{auth, login, well_known};
 use axum::extract::FromRef;
 use axum::Router;
-use axum_extra::extract::cookie::Key;
+//use axum_extra::extract::cookie::Key;
 use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::services::ServeDir;
@@ -22,15 +22,15 @@ use url::Url;
 #[derive(Debug, Clone)]
 struct AppState {
     // that holds the key used to encrypt cookies
-    key: Key,
+    // key: Key,
     db_pool: PgPool,
 }
 
-impl FromRef<AppState> for Key {
-    fn from_ref(state: &AppState) -> Self {
-        state.key.clone()
-    }
-}
+// impl FromRef<AppState> for Key {
+//     fn from_ref(state: &AppState) -> Self {
+//         state.key.clone()
+//     }
+// }
 
 #[tokio::main]
 #[instrument]
@@ -57,10 +57,10 @@ async fn main() {
         .expect(format!("The database url {0} is not valid", &database_url_string).as_str());
 
     let state = AppState {
-        // Generate a secure key
-        //
-        // TODO:  You probably don't wanna generate a new one each time the app starts though
-        key: Key::generate(),
+        // // Generate a secure key
+        // //
+        // // TODO:  You probably don't wanna generate a new one each time the app starts though
+        // key: Key::generate(),
         db_pool: init_db(&database_url_string).await,
     };
 
@@ -78,6 +78,7 @@ async fn main() {
     let app = Router::new()
         .merge(auth::router().await)
         .merge(well_known::router().await)
+        .merge(login::router().await)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(state)
         .nest_service("/assets", ServeDir::new("dist/assets"))

@@ -1,6 +1,6 @@
 use crate::db::client_dao::db_get_client_by_id;
 use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_state_key_id};
-use crate::db::idp_dao::{Idp, db_get_idp_by_id, db_get_idps};
+use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
@@ -57,7 +57,9 @@ pub struct OAuthState {
     // TODO: generate crypto random nonce (or something)
     // TODO: can the expiration work better?
     pub idp_id: String,
+    pub client_id: String,
     pub exp: u64,
+    pub redirect_uri: String,
 }
 pub async fn get_idps(pool: &PgPool) -> Result<HashSet<IdpResponse>> {
     let mut tx = pool.begin().await?;
@@ -75,7 +77,6 @@ pub async fn handle_callback(
     pool: &PgPool,
     state: &String,
     code: &String,
-    client_id: &String,
     cookie_state: &String,
 ) -> Result<String> {
     if !cookie_state.eq(state) {
@@ -99,7 +100,7 @@ pub async fn handle_callback(
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
-    make_auth_token(pool, client_id, claims).await
+    make_auth_token(pool, &decoded_state.client_id, claims).await
 }
 
 pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthState> {

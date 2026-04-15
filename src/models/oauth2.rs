@@ -9,4 +9,5 @@ pub struct AuthCodeQueryParams {
 #[derive(Debug, Deserialize)]
 pub struct AuthorizeByIdpRequest {
     pub idp_id: String,
+    pub redirect_uri: String,
 }
