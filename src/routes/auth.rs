@@ -1,5 +1,7 @@
 use crate::models::api::{Entity, TmsResponse, TokenResponse};
-use crate::models::oauth2::AuthCodeQueryParams;
+use crate::models::oauth2::{
+    AuthCodeQueryParams, OAuth2AuthorizeRequest, OAuth2AuthorizeSuccess, OAuth2Response,
+};
 use crate::services::oauth_service::decode_state;
 use crate::services::oauth_service::{get_idps, handle_callback, IdpResponse};
 use crate::services::service_error::AppError;
@@ -8,17 +10,20 @@ use crate::AppState;
 use anyhow::Result;
 use axum::extract::State;
 use axum::http::header::LOCATION;
-use axum::{debug_handler, extract::Query, routing::get, Router};
+use axum::routing::post;
+use axum::{debug_handler, extract::Query, routing::get, Form, Router};
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
+
 const TOKEN_COOKIE_NAME: &str = "tmstoken";
 pub const STATE_COOKIE_NAME: &str = "state_cookie";
 const ROOT_COOKIE_PATH: &str = "/";
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/oauth2/callback", get(callback_handler))
+        .route("/oauth2/authorize", post(authorize_handler))
         .route("/oauth2/idp", get(get_idp_handler))
 }
 
@@ -30,6 +35,26 @@ pub async fn get_idp_handler(
 
     Ok(TmsResponse::builder(StatusCode::OK)
         .entity(Entity::Success(idp_result))
+        .build())
+}
+
+#[debug_handler]
+pub async fn authorize_handler(
+    State(app_state): State<AppState>,
+    request: Form<OAuth2AuthorizeRequest>,
+) -> Result<TmsResponse<OAuth2Response>, AppError> {
+    let result = OAuth2Response::Success(OAuth2AuthorizeSuccess {
+        state: Some(String::from("this is the state")),
+        code: String::from("this is the code"),
+    });
+    // let result = OAuth2Response::Error(OAuth2AuthorizeError {
+    //     error: OAuth2Error::AccessDenied,
+    //     error_description: None,
+    //     error_uri: None,
+    //     state: None,
+    // });
+    Ok(TmsResponse::builder(StatusCode::OK)
+        .entity(Entity::Success(result))
         .build())
 }
 
@@ -58,6 +83,7 @@ pub async fn callback_handler(
     .await?;
     let c = Cookie::build((TOKEN_COOKIE_NAME, token))
         .path(ROOT_COOKIE_PATH)
+        .http_only(true)
         .build();
     let updated_jar = jar.clone().add(c);
 

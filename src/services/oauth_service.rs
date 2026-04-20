@@ -5,14 +5,12 @@ use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
 use anyhow::{Context, Result};
-use jsonwebtoken::{Algorithm, Header};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::debug;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
 use uuid::Uuid;
 
 const DEFAULT_ALGORITHM: &str = "RS256";
