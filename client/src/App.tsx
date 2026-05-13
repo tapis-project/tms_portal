@@ -5,6 +5,7 @@ import { useListProviders, useListResources } from "./tms-hooks"
 import { ResourceCard } from "./components/tms-ui/ResourceCard"
 import { ProviderCard } from "./components/tms-ui/ProviderCard"
 import { UserMenu } from "./components/tms-ui/UserMenu"
+import { useAuth } from "./tms-hooks/useAuth"
 
 function ResourceCardGrid({
   userId,
@@ -46,6 +47,8 @@ function ProviderCardList() {
 }
 
 function App() {
+  const { data: isAuthenticated } = useAuth()
+  console.log(isAuthenticated)
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -59,13 +62,29 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-2 px-4 py-6 sm:px-6 lg:px-8">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          Resource Providers{" "}
-          <Button size="sm" variant="outline">
-            <Plus /> Add Provider
-          </Button>
-        </h2>
-        <ProviderCardList></ProviderCardList>
+        {!isAuthenticated && (
+          <div>
+            Please{" "}
+            <a
+              href="/login?idp_id=globus_idp&redirect_uri=https://tms-auth-service.tacc.cloud/"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              log in
+            </a>{" "}
+            to manage resources.
+          </div>
+        )}
+        {!!isAuthenticated && (
+          <>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              Linked Identities{" "}
+              <Button size="sm" variant="outline">
+                <Plus /> Add Identity
+              </Button>
+            </h2>
+            <ProviderCardList></ProviderCardList>
+          </>
+        )}
       </main>
     </div>
   )

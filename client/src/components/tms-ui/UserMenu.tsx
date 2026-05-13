@@ -1,4 +1,4 @@
-import { UserCircle2, LogOut, EllipsisVertical } from "lucide-react"
+import { UserCircle2, LogOut, EllipsisVertical, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -8,9 +8,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
+import { useAuth } from "@/tms-hooks/useAuth"
 
 export function UserMenu() {
+  const { data: isAuthenticated } = useAuth()
+  if (!isAuthenticated)
+    return (
+      <Button variant="outline" role="link" asChild>
+        <a href="/login?idp_id=globus_idp&redirect_uri=https://tms-auth-service.tacc.cloud/">
+          <LogIn /> Log In
+        </a>
+      </Button>
+    )
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
