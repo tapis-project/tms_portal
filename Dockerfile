@@ -9,9 +9,9 @@
 
 FROM node:24 AS node_build
 RUN npm install -g pnpm
-COPY ./client/package.json ./client/pnpm-lock.yaml /client/
+COPY ./client/package.json ./client/pnpm-lock.yaml ./client/pnpm-workspace.yaml /client/
 WORKDIR /client
-RUN pnpm install 
+RUN pnpm install
 COPY ./client/ /client/
 RUN pnpm run build
 
