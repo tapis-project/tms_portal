@@ -1,6 +1,5 @@
 minimumReleaseAge: 10080 # Only install packages >1 week old
 
-
 allowBuilds:
   esbuild: true
   msw: true
