@@ -1,41 +1,27 @@
-// use crate::models::api::Entity::ServiceError;
-//use crate::models::tms_internal::TmsServiceError;
+use crate::services::service_error::ServiceError;
 use axum::body::Body;
+use axum::http;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
-
-// impl Display for TmsServiceError {
-//     // TODO: this should not be needed at some point soon.
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{}", "An error has occurred!")
-//     }
-// }
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum Entity<T>
 where
     T: Serialize,
 {
-    // ServiceError(TmsServiceError),
     Success(T),
 }
-// impl<T> From<TmsServiceError> for Entity<T>
-// where
-//     T: Serialize,
-// {
-//     fn from(value: TmsServiceError) -> Self {
-//         ServiceError(value)
-//     }
-// }
 
 pub struct TmsResponseBuilder<T>
 where
     T: Serialize,
 {
     status_code: StatusCode,
-    entity: Option<Entity<T>>,
+    entity: Option<T>,
     headers: Option<HashMap<String, String>>,
 }
 
@@ -43,7 +29,7 @@ impl<T> TmsResponseBuilder<T>
 where
     T: Serialize,
 {
-    pub fn entity(mut self, entity: Entity<T>) -> TmsResponseBuilder<T> {
+    pub fn entity(mut self, entity: T) -> TmsResponseBuilder<T> {
         self.entity = Some(entity);
         self
     }
@@ -61,12 +47,22 @@ where
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ApiResponseBody<T>
+where
+    T: Serialize,
+{
+    status: String,
+    result: Option<T>,
+}
+
 pub struct TmsResponse<T>
 where
     T: Serialize,
 {
     pub status_code: StatusCode,
-    pub entity: Option<Entity<T>>,
+    pub entity: Option<T>,
     pub headers: Option<HashMap<String, String>>,
 }
 
@@ -88,22 +84,16 @@ where
     T: Serialize,
 {
     fn into_response(self) -> Response {
-        let body = match self.entity {
-            Some(Entity::Success(entity)) => {
-                if let Ok(json_string) = serde_json::ser::to_string(&entity) {
-                    Body::from(json_string)
-                } else {
-                    return internal_error_response("Unable to serialize entity");
-                }
-            }
-            // Some(Entity::ServiceError(error)) => {
-            //     if let Ok(json_string) = serde_json::ser::to_string(&error) {
-            //         Body::from(json_string)
-            //     } else {
-            //         return internal_error_response("Unable to serialize entity");
-            //     }
-            // }
-            None => Body::default(),
+        let result = match self.entity {
+            Some(entity) => ApiResponseBody {
+                status: self.status_code.to_string(),
+                result: Some(entity),
+            },
+
+            None => ApiResponseBody {
+                status: self.status_code.to_string(),
+                result: None,
+            },
         };
 
         let mut builder = Response::builder().status(self.status_code);
@@ -112,13 +102,17 @@ where
             for (key, value) in headers.iter() {
                 builder = builder.header(key, value);
             }
-        }
-
-        if let Ok(response) = builder.body(body) {
-            response
         } else {
-            internal_error_response("Unable to build response")
-        }
+            builder = builder.header(http::header::CONTENT_TYPE, "application/json");
+        };
+
+        if let Ok(json_string) = serde_json::ser::to_string(&result) {
+            if let Ok(response) = builder.body(Body::from(json_string)) {
+                return response;
+            };
+        };
+
+        internal_error_response("Unable to build response")
     }
 }
 pub fn internal_error_response(msg: &str) -> Response {
@@ -127,4 +121,31 @@ pub fn internal_error_response(msg: &str) -> Response {
 #[derive(Debug, Serialize)]
 pub struct TokenResponse {
     pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WhoAmIResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<Value>,
+    pub username: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idp_display_name: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization: Option<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+pub enum IdpProvider {
+    Globus,
+}
+
+impl FromStr for IdpProvider {
+    type Err = ServiceError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "globus" => Ok(IdpProvider::Globus),
+            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", s))),
+        }
+    }
 }

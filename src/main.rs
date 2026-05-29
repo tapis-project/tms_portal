@@ -9,10 +9,13 @@ mod utils;
 
 use crate::config::init_db;
 use crate::routes::{auth, login, well_known};
-use axum::Router;
 //use axum_extra::extract::cookie::Key;
+use crate::services::service_error::AppError;
+use crate::services::service_error::ServiceError::{MethodNotAllowed, NotFound};
+use axum::handler::HandlerWithoutStateExt;
+use axum::response::IntoResponse;
+use axum::Router;
 use sqlx::PgPool;
-use tower::ServiceBuilder;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
@@ -24,12 +27,6 @@ struct AppState {
     // key: Key,
     db_pool: PgPool,
 }
-
-// impl FromRef<AppState> for Key {
-//     fn from_ref(state: &AppState) -> Self {
-//         state.key.clone()
-//     }
-// }
 
 #[tokio::main]
 #[instrument]
@@ -78,12 +75,24 @@ async fn main() {
         .merge(auth::router().await)
         .merge(well_known::router().await)
         .merge(login::router().await)
-        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
+        .layer(TraceLayer::new_for_http())
         .with_state(state)
         .nest_service("/assets", ServeDir::new("dist/assets"))
-        .fallback_service(ServeDir::new("dist/"));
+        .fallback_service(ServeDir::new("dist/").not_found_service(not_found.into_service()))
+        .method_not_allowed_fallback(method_not_allowed);
+
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", &port))
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn not_found() -> impl IntoResponse {
+    let app_error: AppError = NotFound(String::from("Invalid Path")).into();
+    app_error.into_response()
+}
+
+async fn method_not_allowed() -> impl IntoResponse {
+    let app_error: AppError = MethodNotAllowed(String::from("The method is not allowed")).into();
+    app_error.into_response()
 }

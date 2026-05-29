@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: TMS portal server
+  description: TMS portal server documentation
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local Development
+  - url: https://tms-auth-service.tacc.cloud
+    description: Development Server
+
+paths:
+  /login:
+    post:
+      tags:
+        - Login
+      summary: Login
+      description: Login to TMS Portal using specified identity provider, and redirect back to redirect uri (must be |
+        configured as an allowed redirect uri)
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TmsLoginRequest'
+      responses:
+        "307":
+          description: Temporary redirect
+          headers:
+            location:
+              type: string
+              description: redirect url
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsErrorResponse'
+
+  /login/whoami:
+    get:
+      tags:
+        - Login
+      summary: whoami
+      security:
+        - Bearer: [ ]
+      description: Get information about logged in user
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsWhoAmIResponse'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsErrorResponse'
+
+  /login/idp:
+    get:
+      tags:
+        - Login
+      summary: getIdp
+      description: Get list of all supported login identity providers
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsLoginIdpResponse'
+
+  /login/callback:
+    get:
+      tags:
+        - Login
+      summary: callback
+      description: Called by identity provider with code that can be exchanged for a token.
+      parameters:
+        - name: code
+          schema:
+            type: string
+          in: query
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsCallbackResponse'
+
+# ------------------------------------------------------------------------------
+# --- Components ---------------------------------------------------------------
+# ------------------------------------------------------------------------------
+components:
+  securitySchemes:
+    Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    # ------------------------------------------------------------------------------
+    # --- Model objects ------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+
+    RespBasic:
+    TmsErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: string
+
+    TmsWhoAmIResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          properties:
+            name:
+              type: string
+            user_name:
+              type: string
+            idp_display_name:
+              type: string
+            organization:
+              type: string
+
+    
+    TmsLoginRequest:
+      required:
+        - idp_id
+        - redirect_uri
+      type: object
+      properties:
+        idp_id:
+          type: string
+        redirect_uri:
+          type: string
+
+    TmsLoginIdpResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              client_id:
+                type: string
+              oauth2_token_url:
+                type: string
+              user_info_url:
+                type: string
+
+    TmsCallbackResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          properties:
+            token:
+              type: string
+
+
