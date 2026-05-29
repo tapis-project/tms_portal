@@ -30,8 +30,11 @@ const CLAIM_ORGANIZATION: &str = "organization";
 pub struct IdpResponse {
     pub id: String,
     pub name: String,
+    #[serde(rename = "clientId")]
     pub client_id: String,
+    #[serde(rename = "oauth2TokenUrl")]
     pub oauth2_token_url: String,
+    #[serde(rename = "userInfoUrl")]
     pub user_info_url: Option<String>,
 }
 impl From<Idp> for IdpResponse {

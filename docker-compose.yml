@@ -1,8 +1,6 @@
 ---
-version: "3"
-
 volumes:
-  tms-auth-postgres-16-data:
+  tms-auth-postgres-data:
 
 networks:
   rabbitmq_netwrk:
@@ -20,5 +18,5 @@ services:
     ports:
       - $PG_PORT:5432
     volumes:
-      - tms-auth-postgres-16-data:/var/lib/postgresql/data
+      - tms-auth-postgres-data:/var/lib/postgresql/data
 

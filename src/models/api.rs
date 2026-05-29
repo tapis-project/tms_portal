@@ -128,7 +128,7 @@ pub struct WhoAmIResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<Value>,
     pub username: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "idpDisplayName")]
     pub idp_display_name: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization: Option<Value>,

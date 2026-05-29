@@ -71,7 +71,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TmsLoginIdpResponse'
+                $ref: '#/components/schemas/ListLoginIdpResponse'
 
   /login/callback:
     get:
@@ -95,6 +95,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TmsCallbackResponse'
+
+  /resource/provider:
+    get:
+      tags:
+        - Resource
+      summary: getResourceProviders
+      description: Get a list of the resource providers
+      security:
+        - Bearer: [ ]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResourceProvidersResponse'
 
 # ------------------------------------------------------------------------------
 # --- Components ---------------------------------------------------------------
@@ -130,11 +146,11 @@ components:
               type: string
             user_name:
               type: string
-            idp_display_name:
+            idpDisplayName:
               type: string
             organization:
               type: string
-
+    
     
     TmsLoginRequest:
       required:
@@ -147,7 +163,7 @@ components:
         redirect_uri:
           type: string
 
-    TmsLoginIdpResponse:
+    ListLoginIdpResponse:
       type: object
       properties:
         status:
@@ -155,18 +171,17 @@ components:
         result:
           type: array
           items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              client_id:
-                type: string
-              oauth2_token_url:
-                type: string
-              user_info_url:
-                type: string
+            $ref: '#/components/schemas/IdentityProvider'
+
+    ListResourceProvidersResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityProvider'
 
     TmsCallbackResponse:
       type: object
@@ -177,5 +192,20 @@ components:
           properties:
             token:
               type: string
+
+    IdentityProvider:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        clientId:
+          type: string
+        oauth2TokenUrl:
+          type: string
+        userInfoUrl:
+          type: string
+
 
 
