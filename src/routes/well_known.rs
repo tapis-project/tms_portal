@@ -1,7 +1,7 @@
 use crate::db::client_dao::db_get_client_by_id;
 use crate::db::config_dao::db_get_http_config;
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::models::api::{Entity, TmsResponse};
+use crate::models::api::TmsResponse;
 use crate::services::service_error::AppError;
 use crate::AppState;
 use axum::extract::{Path, State};
@@ -81,7 +81,7 @@ pub async fn openid_configuration_handler(
 
     debug!("Client Id:{:?}", client_id);
     Ok(TmsResponse::builder(StatusCode::OK)
-        .entity(Entity::Success(openid_configuration))
+        .entity(openid_configuration)
         .build())
 }
 pub async fn jwks_json_handler(
@@ -104,7 +104,5 @@ pub async fn jwks_json_handler(
     let jwks = JwkSet { keys };
     // let key = serde_json::to_string(&jwks)?;
     // let key = "stuff".to_string();
-    Ok(TmsResponse::builder(StatusCode::OK)
-        .entity(Entity::Success(jwks))
-        .build())
+    Ok(TmsResponse::builder(StatusCode::OK).entity(jwks).build())
 }

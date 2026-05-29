@@ -58,7 +58,7 @@ impl HttpConfig {
     pub fn get_jwks_url(&self) -> String {
         self.make_tms_url(&self.base_url, &self.jwks_endpoint)
     }
-    fn make_tms_url(&self, base_url: &str, relative_path: &str) -> String {
+    pub fn make_tms_url(&self, base_url: &str, relative_path: &str) -> String {
         // trim and ensure string ends with a "/"
         let base_url_string = base_url.trim_end_matches("/");
 

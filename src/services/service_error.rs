@@ -1,3 +1,4 @@
+use crate::models::api::TmsResponse;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use thiserror::Error;
@@ -11,48 +12,50 @@ where
         Self(err.into())
     }
 }
+
 #[derive(Debug, Error)]
 pub enum ServiceError {
-    #[error("Internal server error: {0}")]
+    #[error("Internal Server Error: {0}")]
     Internal(String),
 
-    #[error("Not found error: {0}")]
+    #[error("Not Found: {0}")]
     NotFound(String),
 
-    #[error("Bad request: {0}")]
+    #[error("Bad Request: {0}")]
     BadRequest(String),
 
-    #[error("Unauthorized error: {0}")]
+    #[error("Unauthorized: {0}")]
     Unauthorized(String),
+
+    #[error("Method Not allowed: {0}")]
+    MethodNotAllowed(String),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        if let Some(error) = self.0.downcast_ref::<ServiceError>() {
+        let error_tuple = if let Some(error) = self.0.downcast_ref::<ServiceError>() {
             match error {
-                ServiceError::Internal(_) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Formated Interal: {:#}", error),
-                )
-                    .into_response(),
-                ServiceError::NotFound(_) => {
-                    (StatusCode::NOT_FOUND, format!("{:#}", error)).into_response()
+                ServiceError::Internal(_) => {
+                    (StatusCode::INTERNAL_SERVER_ERROR, format!("{:#}", error))
                 }
-                ServiceError::Unauthorized(_) => {
-                    (StatusCode::UNAUTHORIZED, format!("{:#}", error)).into_response()
+                ServiceError::NotFound(_) => (StatusCode::NOT_FOUND, format!("{:#}", error)),
+                ServiceError::Unauthorized(_) => (StatusCode::UNAUTHORIZED, format!("{:#}", error)),
+                ServiceError::BadRequest(_) => (StatusCode::BAD_REQUEST, format!("{:#}", error)),
+                ServiceError::MethodNotAllowed(_) => {
+                    (StatusCode::METHOD_NOT_ALLOWED, format!("{:#}", error))
                 }
-                ServiceError::BadRequest(_) => (
-                    StatusCode::BAD_REQUEST,
-                    format!("Formated Interal: {:#}", error),
-                )
-                    .into_response(),
             }
         } else {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("(Generic): {:#}", self.0),
             )
-                .into_response()
-        }
+        };
+
+        // build a TmsResponse object, and convert that into a Response
+        TmsResponse::builder(error_tuple.0)
+            .entity(error_tuple.1)
+            .build()
+            .into_response()
     }
 }
