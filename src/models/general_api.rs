@@ -1,20 +1,10 @@
-use crate::services::service_error::ServiceError;
+use crate::models::login_api::{internal_error_response, ApiResponseBody};
 use axum::body::Body;
 use axum::http;
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde::Serialize;
 use std::collections::HashMap;
-use std::str::FromStr;
-
-#[derive(Debug, Clone)]
-pub enum Entity<T>
-where
-    T: Serialize,
-{
-    Success(T),
-}
 
 pub struct TmsResponseBuilder<T>
 where
@@ -47,16 +37,6 @@ where
         }
     }
 }
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ApiResponseBody<T>
-where
-    T: Serialize,
-{
-    status: String,
-    result: Option<T>,
-}
-
 pub struct TmsResponse<T>
 where
     T: Serialize,
@@ -113,39 +93,5 @@ where
         };
 
         internal_error_response("Unable to build response")
-    }
-}
-pub fn internal_error_response(msg: &str) -> Response {
-    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
-}
-#[derive(Debug, Serialize)]
-pub struct TokenResponse {
-    pub token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WhoAmIResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<Value>,
-    pub username: Value,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "idpDisplayName")]
-    pub idp_display_name: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization: Option<Value>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
-pub enum IdpProvider {
-    Globus,
-}
-
-impl FromStr for IdpProvider {
-    type Err = ServiceError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "globus" => Ok(IdpProvider::Globus),
-            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", s))),
-        }
     }
 }

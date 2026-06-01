@@ -1,4 +1,4 @@
-use crate::models::api::TmsResponse;
+use crate::models::general_api::TmsResponse;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use thiserror::Error;

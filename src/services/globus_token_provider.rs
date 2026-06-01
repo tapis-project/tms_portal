@@ -1,4 +1,4 @@
-use crate::models::api::WhoAmIResponse;
+use crate::models::login_api::WhoAmIResponse;
 use crate::services::login_service::TmsTokenClaims;
 use crate::services::service_error::AppError;
 use crate::services::token_provider::TokenProvider;

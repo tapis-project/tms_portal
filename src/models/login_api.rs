@@ -1,4 +1,9 @@
+use crate::services::service_error::ServiceError;
+use axum::response::{IntoResponse, Response};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::str::FromStr;
 
 #[derive(Debug, Deserialize)]
 pub struct AuthCodeQueryParams {
@@ -72,4 +77,48 @@ pub enum OAuth2Response {
     Success(OAuth2AuthorizeSuccess),
     #[serde(untagged)]
     Error(OAuth2AuthorizeError),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ApiResponseBody<T>
+where
+    T: Serialize,
+{
+    pub status: String,
+    pub result: Option<T>,
+}
+
+pub fn internal_error_response(msg: &str) -> Response {
+    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
+}
+#[derive(Debug, Serialize)]
+pub struct TokenResponse {
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WhoAmIResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<Value>,
+    pub username: Value,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "idpDisplayName")]
+    pub idp_display_name: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization: Option<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+pub enum IdpProvider {
+    Globus,
+}
+
+impl FromStr for IdpProvider {
+    type Err = ServiceError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "globus" => Ok(IdpProvider::Globus),
+            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", s))),
+        }
+    }
 }

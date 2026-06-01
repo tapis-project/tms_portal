@@ -8,7 +8,7 @@ mod services;
 mod utils;
 
 use crate::config::init_db;
-use crate::routes::{auth, login, well_known};
+use crate::routes::{login, well_known};
 //use axum_extra::extract::cookie::Key;
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{MethodNotAllowed, NotFound};
@@ -72,7 +72,7 @@ async fn main() {
 
     // build our application with a single route
     let app = Router::new()
-        .merge(auth::router().await)
+        //        .merge(auth::router().await)
         .merge(well_known::router().await)
         .merge(login::router().await)
         .layer(TraceLayer::new_for_http())

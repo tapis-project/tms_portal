@@ -1,8 +1,10 @@
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
 use crate::db::idp_dao::db_get_idp_by_id;
-use crate::models::api::{TmsResponse, TokenResponse, WhoAmIResponse};
-use crate::models::oauth2::{AuthCodeQueryParams, AuthorizeByIdpRequest};
+use crate::models::general_api::TmsResponse;
+use crate::models::login_api::{
+    AuthCodeQueryParams, AuthorizeByIdpRequest, TokenResponse, WhoAmIResponse,
+};
 use crate::services::login_service::{
     decode_state, encode_state, get_idps, handle_callback, whoami, IdpResponse, OAuthState,
 };

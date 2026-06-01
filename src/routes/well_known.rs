@@ -1,7 +1,7 @@
 use crate::db::client_dao::db_get_client_by_id;
 use crate::db::config_dao::db_get_http_config;
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::models::api::TmsResponse;
+use crate::models::general_api::TmsResponse;
 use crate::services::service_error::AppError;
 use crate::AppState;
 use axum::extract::{Path, State};

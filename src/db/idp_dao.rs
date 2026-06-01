@@ -1,4 +1,4 @@
-use crate::models::api::IdpProvider;
+use crate::models::login_api::IdpProvider;
 use crate::services::service_error::ServiceError::NotFound;
 use anyhow::Result;
 use sqlx::postgres::PgRow;

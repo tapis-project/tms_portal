@@ -2,7 +2,7 @@ use crate::db::client_dao::db_get_client_by_id;
 use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_state_key_id};
 use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::models::api::{/*Entity,*/ IdpProvider, WhoAmIResponse};
+use crate::models::login_api::{/*Entity,*/ IdpProvider, WhoAmIResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
