@@ -8,7 +8,7 @@ mod services;
 mod utils;
 
 use crate::config::init_db;
-use crate::routes::{login, well_known};
+use crate::routes::{login, resource, well_known};
 //use axum_extra::extract::cookie::Key;
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{MethodNotAllowed, NotFound};
@@ -75,6 +75,7 @@ async fn main() {
         //        .merge(auth::router().await)
         .merge(well_known::router().await)
         .merge(login::router().await)
+        .merge(resource::router().await)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
         .nest_service("/assets", ServeDir::new("dist/assets"))

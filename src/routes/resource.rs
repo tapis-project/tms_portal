@@ -1,31 +1,27 @@
 use crate::models::general_api::TmsResponse;
-use crate::models::login_api::{OAuth2AuthorizeRequest, OAuth2AuthorizeSuccess, OAuth2Response};
+use crate::models::resource_api::GetResourceProviderResponse;
+use crate::services::resource_service::get_resource_providers;
 use crate::services::service_error::AppError;
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::State;
 use axum::routing::get;
-use axum::{debug_handler, Form, Router};
+use axum::{debug_handler, Router};
+use axum_extra::headers::authorization::Bearer;
+use axum_extra::headers::Authorization;
+use axum_extra::TypedHeader;
 use reqwest::StatusCode;
 
 pub async fn router() -> Router<AppState> {
-    Router::new().route("/resources/providers", get(resource_provider_handler))
+    Router::new().route("/resource/provider", get(get_resource_provider_handler))
 }
 
 #[debug_handler]
-pub async fn resource_provider_handler(
+pub async fn get_resource_provider_handler(
     State(app_state): State<AppState>,
-    request: Form<OAuth2AuthorizeRequest>,
-) -> Result<TmsResponse<OAuth2Response>, AppError> {
-    let result = OAuth2Response::Success(OAuth2AuthorizeSuccess {
-        state: Some(String::from("this is the state")),
-        code: String::from("this is the code"),
-    });
-    // let result = OAuth2Response::Error(OAuth2AuthorizeError {
-    //     error: OAuth2Error::AccessDenied,
-    //     error_description: None,
-    //     error_uri: None,
-    //     state: None,
-    // });
+    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
+) -> Result<TmsResponse<GetResourceProviderResponse>, AppError> {
+    let token = &String::from(bearer.token());
+    let result = get_resource_providers(&app_state.db_pool, token).await?;
     Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
 }

@@ -1,6 +1,6 @@
-use crate::models::login_api::IdpProvider;
-use crate::services::service_error::ServiceError::NotFound;
+use crate::services::service_error::ServiceError;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
 use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{query, PgTransaction, Row};
@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct Idp {
+pub struct ResourceProvider {
     pub id: String,
     pub name: String,
     pub client_id: String,
@@ -19,17 +19,17 @@ pub struct Idp {
     pub oidc_user_info_url: Option<String>,
     pub oauth2_public_key: Option<String>,
     pub scope: Option<String>,
-    pub provider: IdpProvider,
+    pub resource_provider_type: ResourceProviderType,
     pub created: PrimitiveDateTime,
     pub updated: PrimitiveDateTime,
 }
 
-impl TryFrom<&PgRow> for Idp {
+impl TryFrom<&PgRow> for ResourceProvider {
     type Error = anyhow::Error;
     fn try_from(row: &PgRow) -> anyhow::Result<Self, Self::Error> {
-        let provider: &str = row.get("provider");
+        let provider: &str = row.get("provider_type");
 
-        Ok(Idp {
+        Ok(ResourceProvider {
             id: row.get("id"),
             name: row.get("name"),
             client_id: row.get("client_id"),
@@ -40,42 +40,43 @@ impl TryFrom<&PgRow> for Idp {
             oidc_user_info_url: row.get("oidc_user_info_url"),
             oauth2_public_key: row.get("oauth2_public_key"),
             scope: row.get("scope"),
-            provider: IdpProvider::from_str(provider)?,
+            resource_provider_type: ResourceProviderType::from_str(provider)?,
             created: row.get("created"),
             updated: row.get("updated"),
         })
     }
 }
 
-pub async fn db_get_idps<'a>(tx: &mut PgTransaction<'a>) -> Result<HashSet<Idp>> {
-    let idp_query_result = query(
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+pub enum ResourceProviderType {
+    TaccTapis,
+}
+
+impl FromStr for ResourceProviderType {
+    type Err = ServiceError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "tacc_tapis" => Ok(ResourceProviderType::TaccTapis),
+            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", s))),
+        }
+    }
+}
+
+pub async fn db_get_resource_providers<'a>(
+    tx: &mut PgTransaction<'a>,
+) -> Result<HashSet<ResourceProvider>> {
+    let rp_query_result = query(
         "select id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
-                     oauth2_public_key, scope, provider, created, updated from idps",
+                     oauth2_public_key, scope, provider_type, created, updated from resource_providers",
     )
     .fetch_all(&mut **tx)
     .await?;
 
-    let mut idps: Vec<Idp> = vec![];
-    for row in &idp_query_result {
-        idps.push(Idp::try_from(row)?);
+    let mut rps: Vec<ResourceProvider> = vec![];
+    for row in &rp_query_result {
+        rps.push(ResourceProvider::try_from(row)?);
     }
-    Ok(HashSet::from_iter(idps))
-}
-
-pub async fn db_get_idp_by_id<'a>(tx: &mut PgTransaction<'a>, id: &String) -> Result<Idp> {
-    let row = query(
-        "select id, name, client_id, client_secret, identity_redirect_url,
-                     oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
-                     oauth2_public_key, scope, provider, created, updated from idps where id = $1",
-    )
-    .bind(id)
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(|error| match error {
-        sqlx::Error::RowNotFound => NotFound(format!("Idp id {} not found", id)).into(),
-        _ => anyhow::anyhow!(error),
-    })?;
-    dbg!(&row);
-    Ok(Idp::try_from(&row)?)
+    Ok(HashSet::from_iter(rps))
 }

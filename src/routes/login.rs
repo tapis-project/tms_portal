@@ -1,12 +1,12 @@
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
-use crate::db::idp_dao::db_get_idp_by_id;
+use crate::db::identity_provider_dao::db_get_idp_by_id;
 use crate::models::general_api::TmsResponse;
 use crate::models::login_api::{
-    AuthCodeQueryParams, AuthorizeByIdpRequest, TokenResponse, WhoAmIResponse,
+    AuthCodeQueryParams, AuthorizeByIdpRequest, IdentityProvider, TokenResponse, WhoAmIResponse,
 };
 use crate::services::login_service::{
-    decode_state, encode_state, get_idps, handle_callback, whoami, IdpResponse, OAuthState,
+    decode_state, encode_state, get_identity_providers, handle_callback, whoami, OAuthState,
 };
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
@@ -175,8 +175,8 @@ pub async fn callback_handler(
 #[debug_handler]
 pub async fn get_idp_handler(
     State(app_state): State<AppState>,
-) -> anyhow::Result<TmsResponse<HashSet<IdpResponse>>, AppError> {
-    let idp_result = get_idps(&app_state.db_pool).await?;
+) -> anyhow::Result<TmsResponse<HashSet<IdentityProvider>>, AppError> {
+    let idp_result = get_identity_providers(&app_state.db_pool).await?;
 
     Ok(TmsResponse::builder(StatusCode::OK)
         .entity(idp_result)

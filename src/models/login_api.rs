@@ -1,9 +1,9 @@
-use crate::services::service_error::ServiceError;
+use crate::db::identity_provider_dao;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::str::FromStr;
+use std::collections::HashSet;
 
 #[derive(Debug, Deserialize)]
 pub struct AuthCodeQueryParams {
@@ -18,22 +18,7 @@ pub struct AuthorizeByIdpRequest {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct OAuth2AuthorizeRequest {
-    response_type: String,
-    client_id: String,
-    redirect_uri: Option<String>,
-    scope: Option<String>,
-    state: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct OAuth2AuthorizeSuccess {
-    pub(crate) code: String,
-    pub(crate) state: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub enum OAuth2Error {
+pub enum LoginError {
     InvalidRequest,
     UnauthorizedClient,
     AccessDenied,
@@ -42,41 +27,17 @@ pub enum OAuth2Error {
     ServerError,
 }
 
-impl OAuth2Error {
+impl LoginError {
     pub fn get_name(&self) -> String {
         match self {
-            OAuth2Error::InvalidRequest => String::from("invalid_request"),
-            OAuth2Error::UnauthorizedClient => String::from("unauthorized_client"),
-            OAuth2Error::AccessDenied => String::from("access_denied"),
-            OAuth2Error::UnsupportedResponseType => String::from("unsupported_response_type"),
-            OAuth2Error::InvalidScope => String::from("invalid_scope"),
-            OAuth2Error::ServerError => String::from("server_error"),
+            LoginError::InvalidRequest => String::from("invalid_request"),
+            LoginError::UnauthorizedClient => String::from("unauthorized_client"),
+            LoginError::AccessDenied => String::from("access_denied"),
+            LoginError::UnsupportedResponseType => String::from("unsupported_response_type"),
+            LoginError::InvalidScope => String::from("invalid_scope"),
+            LoginError::ServerError => String::from("server_error"),
         }
     }
-}
-
-fn serialize_oauth2_error<S>(error: &OAuth2Error, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    s.serialize_str(error.get_name().as_str())
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct OAuth2AuthorizeError {
-    #[serde(serialize_with = "serialize_oauth2_error")]
-    pub(crate) error: OAuth2Error,
-    pub(crate) error_description: Option<String>,
-    pub(crate) error_uri: Option<String>,
-    pub(crate) state: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub enum OAuth2Response {
-    #[serde(untagged)]
-    Success(OAuth2AuthorizeSuccess),
-    #[serde(untagged)]
-    Error(OAuth2AuthorizeError),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -107,18 +68,28 @@ pub struct WhoAmIResponse {
     pub organization: Option<Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
-pub enum IdpProvider {
-    Globus,
+#[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
+pub struct IdentityProvider {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "clientId")]
+    pub client_id: String,
+    #[serde(rename = "oauth2TokenUrl")]
+    pub oauth2_token_url: String,
+    #[serde(rename = "userInfoUrl")]
+    pub user_info_url: Option<String>,
 }
 
-impl FromStr for IdpProvider {
-    type Err = ServiceError;
+pub type GetIdentityProviderResponse = HashSet<IdentityProvider>;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "globus" => Ok(IdpProvider::Globus),
-            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", s))),
+impl From<identity_provider_dao::IdentityProvider> for IdentityProvider {
+    fn from(value: identity_provider_dao::IdentityProvider) -> Self {
+        IdentityProvider {
+            id: value.id,
+            name: value.name,
+            client_id: value.client_id,
+            oauth2_token_url: value.oauth2_token_url,
+            user_info_url: value.oidc_user_info_url,
         }
     }
 }

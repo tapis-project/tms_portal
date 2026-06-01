@@ -1,8 +1,9 @@
 use crate::db::client_dao::db_get_client_by_id;
 use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_state_key_id};
-use crate::db::idp_dao::{db_get_idp_by_id, db_get_idps, Idp};
+use crate::db::identity_provider_dao;
+use crate::db::identity_provider_dao::{db_get_idp_by_id, db_get_idps, IdentityProviderType};
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::models::login_api::{/*Entity,*/ IdpProvider, WhoAmIResponse};
+use crate::models::login_api::{GetIdentityProviderResponse, WhoAmIResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
@@ -26,28 +27,6 @@ const CLAIM_NAME: &str = "name";
 const CLAIM_IDP_DISPLAY_NAME: &str = "identity_provider_display_name";
 const CLAIM_ORGANIZATION: &str = "organization";
 
-#[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
-pub struct IdpResponse {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "clientId")]
-    pub client_id: String,
-    #[serde(rename = "oauth2TokenUrl")]
-    pub oauth2_token_url: String,
-    #[serde(rename = "userInfoUrl")]
-    pub user_info_url: Option<String>,
-}
-impl From<Idp> for IdpResponse {
-    fn from(value: Idp) -> Self {
-        IdpResponse {
-            id: value.id,
-            name: value.name,
-            client_id: value.client_id,
-            oauth2_token_url: value.oauth2_token_url,
-            user_info_url: value.oidc_user_info_url,
-        }
-    }
-}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthorizationCodeResponse {
     pub access_token: String,
@@ -66,12 +45,42 @@ pub struct OAuthState {
     pub exp: u64,
     pub redirect_uri: String,
 }
-pub async fn get_idps(pool: &PgPool) -> Result<HashSet<IdpResponse>> {
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TmsTokenClaims {
+    pub jti: Value,
+    pub iss: Value,
+    pub sub: Value,
+    #[serde(rename = "tms/token_type")]
+    pub tms_token_type: Value,
+    #[serde(rename = "tms/username")]
+    pub tms_username: Value,
+    #[serde(rename = "tms/client_id")]
+    pub tms_client_id: Value,
+    #[serde(rename = "tms/grant_type")]
+    pub tms_grant_type: Value,
+    #[serde(rename = "tms/account_type")]
+    pub tms_account_type: Value,
+    #[serde(rename = "tms/name", skip_serializing_if = "Option::is_none")]
+    pub tms_name: Option<Value>,
+    #[serde(
+        rename = "tms/identity_provider_display_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tms_idp_display_name: Option<Value>,
+    #[serde(rename = "identity_provider_type")]
+    pub tms_idp_provider: IdentityProviderType,
+    #[serde(rename = "tms/organization", skip_serializing_if = "Option::is_none")]
+    pub tms_organization: Option<Value>,
+    pub exp: Value,
+}
+
+pub async fn get_identity_providers(pool: &PgPool) -> Result<GetIdentityProviderResponse> {
     let mut tx = pool.begin().await?;
     let idps = db_get_idps(&mut tx).await?;
     tx.commit().await?;
 
-    let mut idp_result: HashSet<IdpResponse> = HashSet::new();
+    let mut idp_result = GetIdentityProviderResponse::new();
     idps.iter().for_each(|idp| {
         idp_result.insert(idp.clone().into());
     });
@@ -137,7 +146,11 @@ pub async fn encode_state(pool: &PgPool, oauth_state: OAuthState) -> Result<Stri
     .await
 }
 
-pub async fn exchange_code_for_token<R>(pool: &PgPool, idp: &Idp, code: &String) -> Result<R>
+pub async fn exchange_code_for_token<R>(
+    pool: &PgPool,
+    idp: &identity_provider_dao::IdentityProvider,
+    code: &String,
+) -> Result<R>
 where
     R: for<'a> Deserialize<'a>,
 {
@@ -170,7 +183,10 @@ where
     serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
 }
 
-pub async fn decode_access_token<T>(idp: &Idp, id_token: &String) -> Result<T>
+pub async fn decode_access_token<T>(
+    idp: &identity_provider_dao::IdentityProvider,
+    id_token: &String,
+) -> Result<T>
 where
     T: for<'a> Deserialize<'a>,
 {
@@ -186,38 +202,10 @@ where
         .context("Error decoding JWT")
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TmsTokenClaims {
-    pub jti: Value,
-    pub iss: Value,
-    pub sub: Value,
-    #[serde(rename = "tms/token_type")]
-    pub tms_token_type: Value,
-    #[serde(rename = "tms/username")]
-    pub tms_username: Value,
-    #[serde(rename = "tms/client_id")]
-    pub tms_client_id: Value,
-    #[serde(rename = "tms/grant_type")]
-    pub tms_grant_type: Value,
-    #[serde(rename = "tms/account_type")]
-    pub tms_account_type: Value,
-    #[serde(rename = "tms/name", skip_serializing_if = "Option::is_none")]
-    pub tms_name: Option<Value>,
-    #[serde(
-        rename = "tms/identity_provider_display_name",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub tms_idp_display_name: Option<Value>,
-    pub tms_idp_provider: IdpProvider,
-    #[serde(rename = "tms/organization", skip_serializing_if = "Option::is_none")]
-    pub tms_organization: Option<Value>,
-    pub exp: Value,
-}
-
 pub async fn make_auth_token(
     db_pool: &PgPool,
     client_id: &String,
-    idp: &Idp,
+    idp: &identity_provider_dao::IdentityProvider,
     claims: HashMap<String, Value>,
 ) -> Result<String> {
     let mut tx = db_pool.begin().await?;
@@ -230,7 +218,7 @@ pub async fn make_auth_token(
 
     let issuer = http_config.base_url;
     let subject = get_string_claim(&claims, CLAIM_SUB).await?;
-    let provider = idp.provider.clone();
+    let provider = idp.identity_provider_type.clone();
     let idp_id = get_string_claim(&claims, CLAIM_IDP).await?;
     let tms_subject = format!("{0}@{1}", &subject, &idp_id);
     let tms_username = tms_subject.clone();
@@ -294,7 +282,7 @@ pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIRe
 
     let idp_provider = &tms_token_claims.tms_idp_provider;
     let token_provider = match idp_provider {
-        IdpProvider::Globus => GlobusTokenProvider {},
+        IdentityProviderType::Globus => GlobusTokenProvider {},
     };
 
     token_provider.whoami(&tms_token_claims)
