@@ -80,3 +80,19 @@ pub async fn db_get_resource_providers<'a>(
     }
     Ok(HashSet::from_iter(rps))
 }
+
+pub async fn db_get_resource_provider_by_id<'a>(
+    tx: &mut PgTransaction<'a>,
+    provider_id: &String,
+) -> Result<ResourceProvider> {
+    let rp_query_result = query(
+        "select id, name, client_id, client_secret, identity_redirect_url,
+                     oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
+                     oauth2_public_key, scope, provider_type, created, updated from resource_providers 
+                     where id = $1",
+    )
+        .bind(provider_id)
+        .fetch_one(&mut **tx)
+        .await?;
+    Ok(ResourceProvider::try_from(&rp_query_result)?)
+}

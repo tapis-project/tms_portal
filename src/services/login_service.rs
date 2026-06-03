@@ -9,6 +9,7 @@ use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::services::token_provider::TokenProvider;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
+use crate::utils::oauth2_utils::OAuth2State;
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::{Deserialize, Serialize};
@@ -36,16 +37,6 @@ pub struct AuthorizationCodeResponse {
     pub expires_in: u64,
     //    pub refresh_token_iat: u64,
 }
-#[derive(Debug, Deserialize, Serialize)]
-pub struct OAuthState {
-    // TODO: generate crypto random nonce (or something)
-    // TODO: can the expiration work better?
-    pub idp_id: String,
-    pub client_id: String,
-    pub exp: u64,
-    pub redirect_uri: String,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TmsTokenClaims {
     pub jti: Value,
@@ -117,7 +108,7 @@ pub async fn handle_callback(
     make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
 }
 
-pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthState> {
+pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuth2State> {
     let mut tx = pool.begin().await?;
     let state_key = db_get_state_key_id(&mut tx).await?;
     let keys = db_get_key_by_id(&mut tx, &state_key.kid).await?;
@@ -126,11 +117,11 @@ pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuthS
 
     JwtDecoderBuilder::builder()
         .public_key(&keys.jwt_public_key.as_bytes())
-        .decode::<OAuthState>(&state_string)
+        .decode::<OAuth2State>(&state_string)
         .await
 }
 
-pub async fn encode_state(pool: &PgPool, oauth_state: OAuthState) -> Result<String> {
+pub async fn encode_state(pool: &PgPool, oauth_state: OAuth2State) -> Result<String> {
     let mut tx = pool.begin().await?;
     let state_key = db_get_state_key_id(&mut tx).await?;
     let keys = db_get_key_by_id(&mut tx, &state_key.kid).await?;

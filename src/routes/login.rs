@@ -3,13 +3,14 @@ use crate::db::config_dao::db_get_http_config;
 use crate::db::identity_provider_dao::db_get_idp_by_id;
 use crate::models::general_api::TmsResponse;
 use crate::models::login_api::{
-    AuthCodeQueryParams, AuthorizeByIdpRequest, IdentityProvider, TokenResponse, WhoAmIResponse,
+    AuthorizeByIdpRequest, IdentityProvider, TokenResponse, WhoAmIResponse,
 };
 use crate::services::login_service::{
-    decode_state, encode_state, get_identity_providers, handle_callback, whoami, OAuthState,
+    decode_state, encode_state, get_identity_providers, handle_callback, whoami,
 };
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
+use crate::utils::oauth2_utils::{AuthCodeQueryParams, OAuth2State};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::http::header::LOCATION;
@@ -47,7 +48,7 @@ pub async fn login_handler(
     State(app_state): State<AppState>,
     jar: CookieJar,
     form_data: Form<AuthorizeByIdpRequest>,
-) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
+) -> Result<(CookieJar, TmsResponse<()>), AppError> {
     let client_id_string = String::from(CLIENT_ID_TMS);
     let mut tx = app_state.db_pool.begin().await?;
     let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
@@ -58,7 +59,7 @@ pub async fn login_handler(
 
     match idp {
         Ok(idp) => {
-            let oauth_state = OAuthState {
+            let oauth_state = OAuth2State {
                 client_id: client_id_string,
                 idp_id: form_data.idp_id.clone(),
                 redirect_uri: form_data.redirect_uri.clone(),

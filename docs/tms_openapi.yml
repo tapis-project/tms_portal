@@ -112,6 +112,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListResourceProvidersResponse'
 
+  /resource/provider/authorize:
+    get:
+      tags:
+        - Resource
+      summary: authorizeWithResourceProvider
+      description: Get a list of the resource providers
+      security:
+        - Bearer: [ ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceProviderAuthorizeRequest'
+
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceProviderAuthorizeResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsErrorResponse'
+
 # ------------------------------------------------------------------------------
 # --- Components ---------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -207,5 +235,16 @@ components:
         userInfoUrl:
           type: string
 
+    ResourceProviderAuthorizeRequest:
+      type: object
+      properties:
+        provider_id:
+          type: string
 
-
+    ResourceProviderAuthorizeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: string
