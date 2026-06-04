@@ -77,7 +77,7 @@ pub async fn login_handler(
             let mut tx = app_state.db_pool.begin().await?;
             let http_config = db_get_http_config(&mut tx).await?;
             tx.commit().await?;
-            let callback_url = &http_config.get_callback_url();
+            let callback_url = &http_config.get_identity_provider_callback_url();
             let mut nonce = [0u8; 12];
             OsRng.fill_bytes(&mut nonce);
             let nonce_slice = BASE64_STANDARD.encode(nonce);

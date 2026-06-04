@@ -35,7 +35,8 @@ impl TryFrom<&PgRow> for JwtConfig {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpConfig {
     pub base_url: String,
-    pub callback_endpoint: String,
+    pub identity_provider_callback_endpoint: String,
+    pub resource_provider_callback_endpoint: String,
     pub token_endpoint: String,
     pub authorization_endpoint: String,
     pub revocation_endpoint: String,
@@ -43,8 +44,11 @@ pub struct HttpConfig {
 }
 
 impl HttpConfig {
-    pub fn get_callback_url(&self) -> String {
-        self.make_tms_url(&self.base_url, &self.callback_endpoint)
+    pub fn get_identity_provider_callback_url(&self) -> String {
+        self.make_tms_url(&self.base_url, &self.identity_provider_callback_endpoint)
+    }
+    pub fn get_resource_provider_callback_url(&self) -> String {
+        self.make_tms_url(&self.base_url, &self.resource_provider_callback_endpoint)
     }
     pub fn get_token_url(&self) -> String {
         self.make_tms_url(&self.base_url, &self.token_endpoint)

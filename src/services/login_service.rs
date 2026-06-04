@@ -138,7 +138,7 @@ pub async fn encode_state(pool: &PgPool, oauth_state: OAuth2State) -> Result<Str
 }
 
 pub async fn exchange_code_for_token<R>(
-    pool: &PgPool,
+    db_pool: &PgPool,
     idp: &identity_provider_dao::IdentityProvider,
     code: &String,
 ) -> Result<R>
@@ -146,10 +146,10 @@ where
     R: for<'a> Deserialize<'a>,
 {
     debug!("exchange_code_for_token called");
-    let mut tx = pool.begin().await?;
+    let mut tx = db_pool.begin().await?;
     let http_config = db_get_http_config(&mut tx).await?;
     tx.commit().await?;
-    let callback_url = &http_config.get_callback_url();
+    let callback_url = &http_config.get_identity_provider_callback_url();
     let form_params = [
         ("grant_type", &"authorization_code".to_string()),
         ("redirect_uri", callback_url),
