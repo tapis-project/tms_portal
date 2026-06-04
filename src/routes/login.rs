@@ -185,7 +185,7 @@ pub async fn callback_handler(
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), decoded_state.redirect_uri)].into_iter());
 
-    let updated_jar = jar.remove(Cookie::from(STATE_COOKIE_NAME));
+    let updated_jar = updated_jar.remove(Cookie::from(STATE_COOKIE_NAME));
 
     Ok((
         updated_jar,

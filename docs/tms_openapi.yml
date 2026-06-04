@@ -240,6 +240,8 @@ components:
       properties:
         provider_id:
           type: string
+        redirect_url:
+          type: string
 
     ResourceProviderAuthorizeResponse:
       type: object
