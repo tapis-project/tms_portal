@@ -23,10 +23,6 @@ where
 pub fn internal_error_response(msg: &str) -> Response {
     (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
 }
-#[derive(Debug, Serialize)]
-pub struct TokenResponse {
-    pub token: String,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WhoAmIResponse {

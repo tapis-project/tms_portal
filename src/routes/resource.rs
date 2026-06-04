@@ -46,7 +46,7 @@ pub async fn authorize_handler(
     let client_id = String::from(CLIENT_ID_TMS);
     // validate token
     let token = &String::from(bearer.token());
-    get_token_claims(&app_state.db_pool, &token);
+    get_token_claims(&app_state.db_pool, token).await?;
 
     let authorize_info = get_authenticate_redirect_info(
         &app_state.db_pool,

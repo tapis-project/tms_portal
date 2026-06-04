@@ -9,6 +9,13 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::str::FromStr;
 
+/*
+Identity providers can be for either resources or for logins.  There's a boolean for
+the support of each - supports_login, supports_resources.  I guess in retrospect it should
+have been named login_allowed and resources_allowed because it's not about support, but
+rather if we allow it.
+ */
+
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct IdentityProvider {
     pub id: String,
@@ -79,6 +86,9 @@ impl Display for IdentityProviderType {
     }
 }
 
+/*
+Returns the list of identity providers that support login
+ */
 pub async fn db_get_login_providers<'a>(
     tx: &mut PgTransaction<'a>,
 ) -> Result<HashSet<IdentityProvider>> {
@@ -99,6 +109,9 @@ pub async fn db_get_login_providers<'a>(
     Ok(HashSet::from_iter(idps))
 }
 
+/*
+Returns an identity provider by id if it supports login
+ */
 pub async fn db_get_login_provider_by_id<'a>(
     tx: &mut PgTransaction<'a>,
     id: &String,
@@ -120,6 +133,9 @@ pub async fn db_get_login_provider_by_id<'a>(
     dbg!(&row);
     IdentityProvider::try_from(&row)
 }
+/*
+Returns the list of identity providers that support resources
+ */
 pub async fn db_get_resource_providers<'a>(
     tx: &mut PgTransaction<'a>,
 ) -> Result<HashSet<IdentityProvider>> {
@@ -139,6 +155,9 @@ pub async fn db_get_resource_providers<'a>(
     }
     Ok(HashSet::from_iter(rps))
 }
+/*
+Returns an identity provider by id if it supports resources
+ */
 pub async fn db_get_resource_provider_by_id<'a>(
     tx: &mut PgTransaction<'a>,
     provider_id: &String,

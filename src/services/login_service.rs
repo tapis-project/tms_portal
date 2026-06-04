@@ -100,8 +100,7 @@ pub async fn handle_callback(
         .context("Unable to get idp for database")?;
     tx.commit().await?;
 
-    let token = get_login_provider_token(&pool, &idp, &code).await?;
-    //let token: AuthorizationCodeResponse = exchange_code_for_token(&pool, &idp, code).await?;
+    let token = get_login_provider_token(pool, &idp, code).await?;
     dbg!(&token);
 
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;

@@ -3,7 +3,6 @@ use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::login_service::TmsTokenClaims;
 use crate::services::service_error::ServiceError::BadRequest;
 use crate::utils::jwt_utils::JwtDecoderBuilder;
-use crate::utils::oauth2_authorization_code_utils;
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::de::DeserializeOwned;
@@ -48,28 +47,12 @@ pub async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTok
     Ok(tms_token_claims)
 }
 
+/*
+Exchanges an auth code for an auth token.  The parameter <R> is the structure
+that it is deserialized into.
+ */
 pub async fn get_token_for_provider<R>(
     idp: &IdentityProvider,
-    callback_url: &String,
-    code: &String,
-) -> Result<R>
-where
-    R: DeserializeOwned,
-{
-    oauth2_authorization_code_utils::exchange_code_for_token(
-        &idp.oauth2_token_url,
-        &idp.client_id,
-        &idp.client_secret,
-        callback_url,
-        code,
-    )
-    .await
-}
-
-pub async fn exchange_code_for_token<R>(
-    oauth2_token_url: &String,
-    provider_client_id: &String,
-    provider_client_secret: &String,
     callback_url: &String,
     code: &String,
 ) -> Result<R>
@@ -85,12 +68,9 @@ where
     debug!("Form params: {:?}", form_params);
     let client = reqwest::Client::new();
     let response = client
-        .post(oauth2_token_url)
+        .post(&idp.oauth2_token_url)
         .form(&form_params)
-        .basic_auth(
-            provider_client_id.clone(),
-            Some(provider_client_secret.clone()),
-        )
+        .basic_auth(idp.client_id.clone(), Some(idp.client_secret.clone()))
         .send()
         .await
         .context("Error getting response body")?;
