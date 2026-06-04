@@ -1,16 +1,17 @@
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
-use crate::db::identity_provider_dao::db_get_idp_by_id;
+use crate::db::identity_provider_dao::db_get_login_provider_by_id;
 use crate::models::general_api::TmsResponse;
-use crate::models::login_api::{
-    AuthorizeByIdpRequest, IdentityProvider, TokenResponse, WhoAmIResponse,
-};
+use crate::models::login_api::{AuthorizeByIdpRequest, IdentityProvider, WhoAmIResponse};
 use crate::services::login_service::{
     decode_state, encode_state, get_identity_providers, handle_callback, whoami,
 };
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, OAuth2State};
+use crate::utils::oauth2_authorization_code_utils::{
+    AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME,
+    TOKEN_COOKIE_NAME,
+};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::http::header::LOCATION;
@@ -29,10 +30,13 @@ use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 use url::Url;
 
-const ROOT_COOKIE_PATH: &str = "/";
-const CLIENT_ID_TMS: &str = "tms";
-const TOKEN_COOKIE_NAME: &str = "tmstoken";
-pub const STATE_COOKIE_NAME: &str = "state_cookie";
+/*
+This file handles the web part of logging into the TMS portal.  This includes tasks such as:
+- getting the list of login identity providers
+- requesting a login (which involves a redirect to the browser to login)
+- handling the callback (i.e. redirect from the identity provider login)
+- whoami - information about the logged in user extracted from the token
+ */
 
 pub async fn router() -> Router<AppState> {
     Router::new()
@@ -43,24 +47,31 @@ pub async fn router() -> Router<AppState> {
         .route("/login/idp", get(get_idp_handler))
 }
 
+/*
+Accepts a form with information about the login (idp and redirect uri).  There's an
+associated table of redirect uris that are allowed.  The redirect url must be in that
+table.  This tells us where to redirect back to after the login.  Having multiple allowed
+redirects allows for easier debugging - redirect back to localhost if debugging, etc.
+ */
 #[debug_handler]
 pub async fn login_handler(
     State(app_state): State<AppState>,
     jar: CookieJar,
     form_data: Form<AuthorizeByIdpRequest>,
 ) -> Result<(CookieJar, TmsResponse<()>), AppError> {
-    let client_id_string = String::from(CLIENT_ID_TMS);
+    // Portal login will always be the tms client id
+    let client_id = String::from(CLIENT_ID_TMS);
     let mut tx = app_state.db_pool.begin().await?;
-    let idp = db_get_idp_by_id(&mut tx, &form_data.idp_id).await;
+    let idp = db_get_login_provider_by_id(&mut tx, &form_data.idp_id).await;
 
     // we will not use this value, but we need to make sure this redirect uri is in the database.
-    let _ = db_get_allowed_redirect(&mut tx, &client_id_string, &form_data.redirect_uri).await?;
+    let _ = db_get_allowed_redirect(&mut tx, &client_id, &form_data.redirect_uri).await?;
     tx.commit().await?;
 
     match idp {
         Ok(idp) => {
             let oauth_state = OAuth2State {
-                client_id: client_id_string,
+                client_id,
                 idp_id: form_data.idp_id.clone(),
                 redirect_uri: form_data.redirect_uri.clone(),
                 exp: SystemTime::now()
@@ -81,6 +92,7 @@ pub async fn login_handler(
             let mut nonce = [0u8; 12];
             OsRng.fill_bytes(&mut nonce);
             let nonce_slice = BASE64_STANDARD.encode(nonce);
+            // TODO:  make a real nonce
             let mut query_params = vec![
                 ("response_type", "code"),
                 ("client_id", &idp.client_id),
@@ -94,7 +106,6 @@ pub async fn login_handler(
                 query_params.push(("scope", scope.as_str()))
             }
 
-            // TODO:  make a real nonce
             let location = Url::parse_with_params(&idp.identity_redirect_url, query_params)?;
 
             let updated_jar = jar.add(
@@ -121,6 +132,10 @@ pub async fn login_handler(
     }
 }
 
+/*
+This method requires the user to be logged in (token in Authorization: Bearer token).
+Information can be returned back from the verified/valid token such as the user's name.
+ */
 pub async fn whoami_handler(
     State(app_state): State<AppState>,
     TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
@@ -132,22 +147,23 @@ pub async fn whoami_handler(
         .build())
 }
 
+/*
+OAuth2 Authorization code callback.  This code accepts the code from the login idp,
+and exchanges it for the token from the login idp.  A TMS token is created and
+returned.
+ */
 #[debug_handler]
 pub async fn callback_handler(
     State(app_state): State<AppState>,
     jar: CookieJar,
     query_params: Query<AuthCodeQueryParams>,
-) -> anyhow::Result<(CookieJar, TmsResponse<TokenResponse>), AppError> {
-    tracing::warn!(
-        "OAuth2 callback query code: {0}, state: {1}",
-        &query_params.code,
-        &query_params.state
-    );
-
+) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
+    // Get the state cookie set during the login process.
     let Some(state_cookie) = jar.get(STATE_COOKIE_NAME) else {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
     };
 
+    // exchange code for token (state validated in handle_callback)
     let token = handle_callback(
         &app_state.db_pool,
         &query_params.state,
@@ -155,16 +171,22 @@ pub async fn callback_handler(
         &state_cookie.value().to_owned(),
     )
     .await?;
-    let c = Cookie::build((crate::routes::login::TOKEN_COOKIE_NAME, token))
+
+    // Build a new cookie and save it with the TMS token.
+    let c = Cookie::build((TOKEN_COOKIE_NAME, token))
         .path(ROOT_COOKIE_PATH)
         .http_only(false)
         .secure(true)
         .build();
     let updated_jar = jar.clone().add(c);
 
+    // redirect browser back to the post-login page (taken from state - validated in login step).
     let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), decoded_state.redirect_uri)].into_iter());
+
+    let updated_jar = jar.remove(Cookie::from(STATE_COOKIE_NAME));
+
     Ok((
         updated_jar,
         TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)
@@ -173,6 +195,9 @@ pub async fn callback_handler(
     ))
 }
 
+/*
+Return a list of logon identity providers
+ */
 #[debug_handler]
 pub async fn get_idp_handler(
     State(app_state): State<AppState>,

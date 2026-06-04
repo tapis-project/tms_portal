@@ -1,9 +1,9 @@
+use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
-use crate::db::resource_provider_dao::{db_get_resource_provider_by_id, db_get_resource_providers};
+use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_providers};
 use crate::models::resource_api::GetResourceProviderResponse;
 use crate::services::login_service::encode_state;
 use crate::services::service_error::ServiceError::Internal;
-use crate::utils::oauth2_authorization_code_utils;
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::Result;
 use base64::prelude::BASE64_STANDARD;
@@ -39,6 +39,8 @@ pub struct ResourceProviderTokenResponse {
 pub struct ResourceProviderAuthorizationCodeResponse {
     pub message: String,
     pub result: ResourceProviderTokenResponse,
+    pub status: String,
+    pub version: String,
 }
 
 pub struct ResourceProviderAuthorizeInfo {
@@ -62,15 +64,17 @@ pub async fn get_authenticate_redirect_info(
     db_pool: &PgPool,
     client_id: &String,
     provider_id: &String,
+    redirect_url: &String,
 ) -> Result<ResourceProviderAuthorizeInfo> {
     let mut tx = db_pool.begin().await?;
     let rp = db_get_resource_provider_by_id(&mut tx, provider_id).await?;
+    let _ = db_get_allowed_redirect(&mut tx, &client_id, &redirect_url).await?;
     tx.commit().await?;
 
     let oauth_state = OAuth2State {
         client_id: client_id.clone(),
         idp_id: rp.id,
-        redirect_uri: rp.identity_redirect_url.clone(),
+        redirect_uri: redirect_url.clone(),
         exp: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs()
@@ -122,14 +126,12 @@ pub async fn get_resource_provider_token(
     let http_config = db_get_http_config(&mut tx).await?;
     tx.commit().await?;
 
-    let result: ResourceProviderAuthorizationCodeResponse = get_token_for_provider(
-        &rp.oauth2_token_url,
-        &rp.client_id,
-        &rp.client_secret,
-        &http_config.get_resource_provider_callback_url(),
-        code,
-    )
-    .await?;
-    tracing::debug!("get_resource_provider_token result: {:?}", result);
+    let reponse: ResourceProviderAuthorizationCodeResponse =
+        get_token_for_provider(&rp, &http_config.get_resource_provider_callback_url(), code)
+            .await?;
+
+    let access_token = reponse.result.access_token;
+    let refresh_token = reponse.result.refresh_token;
+
     Ok(())
 }

@@ -1,21 +1,20 @@
-use crate::db::config_dao::db_get_http_config;
-use crate::db::identity_provider_dao::db_get_idp_by_id;
+use crate::db::identity_provider_dao::IdentityProvider;
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::services::login_service::{
-    decode_access_token, decode_state, make_auth_token, AuthorizationCodeResponse, TmsTokenClaims,
-};
-use crate::services::resource_service::ResourceProviderAuthorizationCodeResponse;
-use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
+use crate::services::login_service::TmsTokenClaims;
+use crate::services::service_error::ServiceError::BadRequest;
 use crate::utils::jwt_utils::JwtDecoderBuilder;
 use crate::utils::oauth2_authorization_code_utils;
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sqlx::PgPool;
-use std::collections::HashMap;
 use tracing::debug;
+
+pub const ROOT_COOKIE_PATH: &str = "/";
+pub const CLIENT_ID_TMS: &str = "tms";
+pub const TOKEN_COOKIE_NAME: &str = "tmstoken";
+pub const STATE_COOKIE_NAME: &str = "state_cookie";
 
 #[derive(Debug, Deserialize)]
 pub struct AuthCodeQueryParams {
@@ -50,9 +49,7 @@ pub async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTok
 }
 
 pub async fn get_token_for_provider<R>(
-    provider_token_url: &String,
-    provider_client_id: &String,
-    provider_client_secret: &String,
+    idp: &IdentityProvider,
     callback_url: &String,
     code: &String,
 ) -> Result<R>
@@ -60,9 +57,9 @@ where
     R: DeserializeOwned,
 {
     oauth2_authorization_code_utils::exchange_code_for_token(
-        provider_token_url,
-        provider_client_id,
-        provider_client_secret,
+        &idp.oauth2_token_url,
+        &idp.client_id,
+        &idp.client_secret,
         callback_url,
         code,
     )

@@ -11,29 +11,6 @@ pub struct AuthorizeByIdpRequest {
     pub redirect_uri: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub enum LoginError {
-    InvalidRequest,
-    UnauthorizedClient,
-    AccessDenied,
-    UnsupportedResponseType,
-    InvalidScope,
-    ServerError,
-}
-
-impl LoginError {
-    pub fn get_name(&self) -> String {
-        match self {
-            LoginError::InvalidRequest => String::from("invalid_request"),
-            LoginError::UnauthorizedClient => String::from("unauthorized_client"),
-            LoginError::AccessDenied => String::from("access_denied"),
-            LoginError::UnsupportedResponseType => String::from("unsupported_response_type"),
-            LoginError::InvalidScope => String::from("invalid_scope"),
-            LoginError::ServerError => String::from("server_error"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct ApiResponseBody<T>
 where

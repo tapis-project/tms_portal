@@ -1,4 +1,4 @@
-use crate::db::resource_provider_dao;
+use crate::db::identity_provider_dao;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -18,10 +18,11 @@ pub type GetResourceProviderResponse = HashSet<ResourceProvider>;
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ResourceProviderAuthorizeRequest {
     pub provider_id: String,
+    pub redirect_url: String,
 }
 
-impl From<resource_provider_dao::ResourceProvider> for ResourceProvider {
-    fn from(value: resource_provider_dao::ResourceProvider) -> Self {
+impl From<identity_provider_dao::IdentityProvider> for ResourceProvider {
+    fn from(value: identity_provider_dao::IdentityProvider) -> Self {
         ResourceProvider {
             id: value.id,
             name: value.name,

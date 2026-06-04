@@ -1,15 +1,17 @@
 use crate::db::client_dao::db_get_client_by_id;
 use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_state_key_id};
 use crate::db::identity_provider_dao;
-use crate::db::identity_provider_dao::{db_get_idp_by_id, db_get_idps, IdentityProviderType};
+use crate::db::identity_provider_dao::{
+    db_get_login_provider_by_id, db_get_login_providers, IdentityProviderType,
+};
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::models::login_api::{GetIdentityProviderResponse, WhoAmIResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
-use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
+use crate::services::service_error::{AppError, ServiceError};
 use crate::services::token_provider::TokenProvider;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
-use crate::utils::oauth2_authorization_code_utils::{exchange_code_for_token, OAuth2State};
+use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::{Deserialize, Serialize};
@@ -67,7 +69,7 @@ pub struct TmsTokenClaims {
 
 pub async fn get_identity_providers(pool: &PgPool) -> Result<GetIdentityProviderResponse> {
     let mut tx = pool.begin().await?;
-    let idps = db_get_idps(&mut tx).await?;
+    let idps = db_get_login_providers(&mut tx).await?;
     tx.commit().await?;
 
     let mut idp_result = GetIdentityProviderResponse::new();
@@ -84,7 +86,7 @@ pub async fn handle_callback(
     cookie_state: &String,
 ) -> Result<String> {
     if !cookie_state.eq(state) {
-        return Err(Unauthorized("No state cookies were found".to_string()).into());
+        return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
 
     let decoded_state = decode_state(pool, state)
@@ -93,7 +95,7 @@ pub async fn handle_callback(
     dbg!(&decoded_state);
 
     let mut tx = pool.begin().await?;
-    let idp = db_get_idp_by_id(&mut tx, &decoded_state.idp_id)
+    let idp = db_get_login_provider_by_id(&mut tx, &decoded_state.idp_id)
         .await
         .context("Unable to get idp for database")?;
     tx.commit().await?;
@@ -146,10 +148,8 @@ pub async fn get_login_provider_token(
     let http_config = db_get_http_config(&mut tx).await?;
     tx.commit().await?;
 
-    exchange_code_for_token(
-        &idp.oauth2_token_url,
-        &idp.client_id,
-        &idp.client_secret,
+    get_token_for_provider(
+        &idp,
         &http_config.get_identity_provider_callback_url(),
         code,
     )
@@ -256,14 +256,14 @@ pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIRe
     let idp_provider = &tms_token_claims.tms_idp_provider;
     let token_provider = match idp_provider {
         IdentityProviderType::Globus => GlobusTokenProvider {},
+        _ => {
+            return Err(ServiceError::Internal(format!(
+                "Unsupported provider type {0}",
+                idp_provider
+            ))
+            .into());
+        }
     };
 
     token_provider.whoami(&tms_token_claims)
-
-    // Ok(WhoAmIResponse {
-    //     name: tms_token_claims.tms_name,
-    //     username: tms_token_claims.tms_username,
-    //     idp_display_name: tms_token_claims.tms_idp_display_name,
-    //     organization: tms_token_claims.tms_organization,
-    // })
 }
