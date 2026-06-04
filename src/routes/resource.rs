@@ -6,7 +6,7 @@ use crate::services::resource_service::{
 };
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
-use crate::utils::oauth2_utils::{get_token_claims, AuthCodeQueryParams};
+use crate::utils::oauth2_authorization_code_utils::{get_token_claims, AuthCodeQueryParams};
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::{Query, State};

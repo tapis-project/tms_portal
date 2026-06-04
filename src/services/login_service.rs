@@ -9,7 +9,7 @@ use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::services::token_provider::TokenProvider;
 use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
-use crate::utils::oauth2_utils::OAuth2State;
+use crate::utils::oauth2_authorization_code_utils::{exchange_code_for_token, OAuth2State};
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,6 @@ use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::debug;
 use uuid::Uuid;
 
 const DEFAULT_ALGORITHM: &str = "RS256";
@@ -99,7 +98,8 @@ pub async fn handle_callback(
         .context("Unable to get idp for database")?;
     tx.commit().await?;
 
-    let token: AuthorizationCodeResponse = exchange_code_for_token(&pool, &idp, code).await?;
+    let token = get_login_provider_token(&pool, &idp, &code).await?;
+    //let token: AuthorizationCodeResponse = exchange_code_for_token(&pool, &idp, code).await?;
     dbg!(&token);
 
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
@@ -137,41 +137,23 @@ pub async fn encode_state(pool: &PgPool, oauth_state: OAuth2State) -> Result<Str
     .await
 }
 
-pub async fn exchange_code_for_token<R>(
+pub async fn get_login_provider_token(
     db_pool: &PgPool,
     idp: &identity_provider_dao::IdentityProvider,
     code: &String,
-) -> Result<R>
-where
-    R: for<'a> Deserialize<'a>,
-{
-    debug!("exchange_code_for_token called");
+) -> Result<AuthorizationCodeResponse> {
     let mut tx = db_pool.begin().await?;
     let http_config = db_get_http_config(&mut tx).await?;
     tx.commit().await?;
-    let callback_url = &http_config.get_identity_provider_callback_url();
-    let form_params = [
-        ("grant_type", &"authorization_code".to_string()),
-        ("redirect_uri", callback_url),
-        ("code", &code.to_owned()),
-    ];
-    debug!("Form params: {:?}", form_params);
-    let client = reqwest::Client::new();
-    let response = client
-        .post(&idp.oauth2_token_url)
-        .form(&form_params)
-        .basic_auth(idp.client_id.clone(), Some(idp.client_secret.clone()))
-        .send()
-        .await
-        .context("Error getting response body")?;
-    debug!("Response from exchange code: {:?}", response);
 
-    let token_string = response
-        .text()
-        .await
-        .context("Error getting response body")?;
-
-    serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
+    exchange_code_for_token(
+        &idp.oauth2_token_url,
+        &idp.client_id,
+        &idp.client_secret,
+        &http_config.get_identity_provider_callback_url(),
+        code,
+    )
+    .await
 }
 
 pub async fn decode_access_token<T>(

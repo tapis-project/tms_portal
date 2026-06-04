@@ -3,8 +3,8 @@ use crate::db::resource_provider_dao::{db_get_resource_provider_by_id, db_get_re
 use crate::models::resource_api::GetResourceProviderResponse;
 use crate::services::login_service::encode_state;
 use crate::services::service_error::ServiceError::Internal;
-use crate::utils::oauth2_utils;
-use crate::utils::oauth2_utils::OAuth2State;
+use crate::utils::oauth2_authorization_code_utils;
+use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::Result;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -123,7 +123,6 @@ pub async fn get_resource_provider_token(
     tx.commit().await?;
 
     let result: ResourceProviderAuthorizationCodeResponse = get_token_for_provider(
-        db_pool,
         &rp.oauth2_token_url,
         &rp.client_id,
         &rp.client_secret,
@@ -133,23 +132,4 @@ pub async fn get_resource_provider_token(
     .await?;
     tracing::debug!("get_resource_provider_token result: {:?}", result);
     Ok(())
-}
-
-async fn get_token_for_provider(
-    db_pool: &PgPool,
-    provider_token_url: &String,
-    provider_client_id: &String,
-    provider_client_secret: &String,
-    callback_url: &String,
-    code: &String,
-) -> Result<ResourceProviderAuthorizationCodeResponse> {
-    oauth2_utils::exchange_code_for_token(
-        db_pool,
-        provider_token_url,
-        provider_client_id,
-        provider_client_secret,
-        callback_url,
-        code,
-    )
-    .await
 }

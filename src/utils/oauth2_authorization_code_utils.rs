@@ -4,10 +4,13 @@ use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::login_service::{
     decode_access_token, decode_state, make_auth_token, AuthorizationCodeResponse, TmsTokenClaims,
 };
+use crate::services::resource_service::ResourceProviderAuthorizationCodeResponse;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::utils::jwt_utils::JwtDecoderBuilder;
+use crate::utils::oauth2_authorization_code_utils;
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
@@ -46,8 +49,27 @@ pub async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTok
     Ok(tms_token_claims)
 }
 
+pub async fn get_token_for_provider<R>(
+    provider_token_url: &String,
+    provider_client_id: &String,
+    provider_client_secret: &String,
+    callback_url: &String,
+    code: &String,
+) -> Result<R>
+where
+    R: DeserializeOwned,
+{
+    oauth2_authorization_code_utils::exchange_code_for_token(
+        provider_token_url,
+        provider_client_id,
+        provider_client_secret,
+        callback_url,
+        code,
+    )
+    .await
+}
+
 pub async fn exchange_code_for_token<R>(
-    db_pool: &PgPool,
     oauth2_token_url: &String,
     provider_client_id: &String,
     provider_client_secret: &String,
@@ -55,12 +77,9 @@ pub async fn exchange_code_for_token<R>(
     code: &String,
 ) -> Result<R>
 where
-    R: for<'a> Deserialize<'a>,
+    R: DeserializeOwned,
 {
     debug!("exchange_code_for_token called");
-    let mut tx = db_pool.begin().await?;
-    let http_config = db_get_http_config(&mut tx).await?;
-    tx.commit().await?;
     let form_params = [
         ("grant_type", &"authorization_code".to_string()),
         ("redirect_uri", callback_url),

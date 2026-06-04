@@ -10,7 +10,7 @@ use crate::services::login_service::{
 };
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use crate::utils::oauth2_utils::{AuthCodeQueryParams, OAuth2State};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, OAuth2State};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::http::header::LOCATION;
