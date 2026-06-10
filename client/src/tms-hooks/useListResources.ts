@@ -16,9 +16,9 @@ export type Resource = {
 
 async function fetchResources({ providerId, userId }: ResourceParams) {
   const urlPath = `/resources/${providerId}/${userId}`
-  const { data } = await httpClient.get<Resource[]>(urlPath)
+  const { data } = await httpClient.get<{ result: Resource[] }>(urlPath)
 
-  return data
+  return data?.result
 }
 
 export function useListResources({ providerId, userId }: ResourceParams) {

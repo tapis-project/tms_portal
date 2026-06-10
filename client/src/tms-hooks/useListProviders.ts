@@ -2,17 +2,20 @@ import { useQuery } from "@tanstack/react-query"
 import { httpClient } from "./httpClient"
 
 export type Provider = {
-  id: string;
-  name: string;
-  institution: string;
-  location: string;
-  description: string;
-  linkedIdentities: string[];
+  id: string
+  name: string
+  clientId: string
+  oauth2TokenUrl: string
+
+  userInfoUrl?: string
+  institution?: string
+  location?: string
+  description?: string
 }
 
 const fetchProviders = async () => {
-  const { data } = await httpClient.get<Provider[]>("/providers")
-  return data
+  const { data } = await httpClient.get<{result: Provider[]}>("/resource/provider")
+  return data?.result
 }
 
 export const useListProviders = () => {

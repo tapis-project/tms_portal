@@ -1,4 +1,8 @@
 export { useListProviders } from "./useListProviders"
 export { useListResources } from "./useListResources"
+export { useListProviderLinks } from "./useListProviderLinks"
+export { useWhoami } from "./useWhoami"
 export type { Resource } from "./useListResources"
-export type { Provider } from './useListProviders'
+export type { Provider } from "./useListProviders"
+export type { ProviderLink } from "./useListProviderLinks"
+export type { Whoami } from "./useWhoami"
