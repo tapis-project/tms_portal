@@ -1,11 +1,26 @@
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
-import { useListProviders, useListResources } from "./tms-hooks"
+import {
+  useListProviderLinks,
+  useListProviders,
+  useListResources,
+} from "./tms-hooks"
 import { ResourceCard } from "./components/tms-ui/ResourceCard"
 import { ProviderCard } from "./components/tms-ui/ProviderCard"
 import { UserMenu } from "./components/tms-ui/UserMenu"
 import { useAuth } from "./tms-hooks/useAuth"
+import { Separator } from "./components/ui/separator"
 
 function ResourceCardGrid({
   userId,
@@ -28,10 +43,58 @@ function ResourceCardGrid({
   )
 }
 
+function LinkIdentityModal() {
+  const { data: providerList } = useListProviders()
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Plus /> Add Identity
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Link a New Provider Identity</DialogTitle>
+        </DialogHeader>
+        <Separator />
+        {providerList?.map((provider) => {
+          return (
+            <div
+              key={provider.id}
+              className="flex items-center justify-between gap-4"
+            >
+              <span>
+                {provider.name} ({provider.id})
+              </span>
+              <Button size="sm" className="bg-(--success)">
+                Connect
+              </Button>
+            </div>
+          )
+        })}
+        <Separator />
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function ProviderCardList() {
   const { data: providerList } = useListProviders()
-  if (!providerList) return null
-  return providerList
+  const { data: providerLinks } = useListProviderLinks()
+
+  if (!providerList || !providerLinks) return null
+  const providersWithIdentities = providerList.map((p) => ({
+    ...p,
+    linkedIdentities: providerLinks
+      .filter((link) => link.providerId === p.id)
+      .map((link) => link.providerIdentity),
+  }))
+  return providersWithIdentities
     .filter((p) => p.linkedIdentities.length > 0)
     .map((provider) =>
       provider.linkedIdentities.map((identity) => (
@@ -77,10 +140,7 @@ function App() {
         {!!isAuthenticated && (
           <>
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              Linked Identities{" "}
-              <Button size="sm" variant="outline">
-                <Plus /> Add Identity
-              </Button>
+              Linked Identities <LinkIdentityModal />
             </h2>
             <ProviderCardList></ProviderCardList>
           </>

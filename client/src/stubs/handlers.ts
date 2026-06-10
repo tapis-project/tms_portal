@@ -3,20 +3,25 @@ import { http, HttpResponse, type JsonBodyType } from "msw"
 const providerStubs = [
   {
     id: "tacc",
-    name: "Texas Advanced Computing Center (TACC)",
-    institution: "University of Texas at Austin",
-    location: "Austin, TX",
-    description:
-      "TACC provides large-scale computing resources for open science research.",
-    linkedIdentities: ["jarosenb", "jarosenb_TEST"],
+    name: "TACC Resource Provider",
+    clientId: "tms_dev_client_id",
+    oauth2TokenUrl: "https://tacc.tapis.io/v3/oauth2/tokens",
+    userInfoUrl: "",
   },
+]
+
+const whoamiStub = {
+  name: "Jake Rosenberg",
+  username:
+    "dbddf86d-a94e-4dc8-aa3e-19fe8a58fa7f@f2f321a2-b33a-451f-84a3-9f6d212cf902",
+  idpDisplayName: "University of Texas at Austin",
+  organization: "University of Texas at Austin",
+}
+const providerLinkageStubs = [
   {
-    id: "rp_sdsc",
-    name: "San Diego Supercomputer Center (SDSC)",
-    institution: "UC San Diego",
-    description: "SDSC operates HPC systems designed for science gateways.",
-    location: "San Diego, CA, USA",
-    linkedIdentities: ["jrosenberg"],
+    providerId: "tacc",
+    tmsIdentity: "jarosenb",
+    providerIdentity: "jarosenb",
   },
 ]
 
@@ -82,14 +87,24 @@ const resourceStubs: Record<string, Record<string, JsonBodyType>> = {
 }
 
 export const handlers = [
-  http.get("/providers", () => {
-    return HttpResponse.json(providerStubs)
+  http.get("/login/whoami", () => {
+    return HttpResponse.json({ result: whoamiStub })
+  }),
+
+  http.get("/resource/provider", () => {
+    return HttpResponse.json({ result: providerStubs })
+  }),
+
+  http.get("/resource/provider-links", () => {
+    return HttpResponse.json({ result: providerLinkageStubs })
   }),
 
   http.get<{ provider: string; userId: string }>(
     "/resources/:provider/:userId",
     ({ params }) => {
-      return HttpResponse.json(resourceStubs[params.provider][params.userId])
+      return HttpResponse.json({
+        result: resourceStubs[params.provider][params.userId],
+      })
     }
   ),
 ]

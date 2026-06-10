@@ -9,10 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/tms-hooks/useAuth"
+import { useWhoami } from "@/tms-hooks"
 
 export function UserMenu() {
   const { data: isAuthenticated } = useAuth()
-  if (!isAuthenticated)
+  const { data: whoami } = useWhoami({enabled: !!isAuthenticated});
+  if (!isAuthenticated || !whoami)
     return (
       <Button variant="outline" role="link" asChild>
         <a href="/login?idp_id=globus_idp&redirect_uri=https://tms-auth-service.tacc.cloud/">
@@ -25,14 +27,14 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="h-12">
           <UserCircle2 className="size-6 text-muted-foreground" />
-          <span className="hidden md:block">jarosenb</span>
+          <span className="hidden md:block">{whoami.name}</span>
 
           <EllipsisVertical className="size-5 text-muted-foreground md:ml-3" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Provider: CILogon</DropdownMenuLabel>
+          <DropdownMenuLabel>Provider: {whoami.organization}</DropdownMenuLabel>
           <DropdownMenuItem>
             <a href="#" className="flex items-center gap-2">
               <LogOut /> Log Out
