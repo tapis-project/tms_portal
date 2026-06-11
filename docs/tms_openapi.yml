@@ -108,11 +108,10 @@ paths:
         - name: provider_id
           in: path
           required: true
-          description: The uuid of the provider to list resource for
+          description: The id of the provider to list resource for
           schema:
             type: string
-            format: uuid
-      
+
       responses:
         "200":
           description: Success
@@ -261,7 +260,6 @@ components:
       properties:
         id:
           type: string
-          format: uuid
         name:
           type: string
         clientId:
@@ -283,7 +281,6 @@ components:
           type: string
         provider_id:
           type: string
-          format: uuid
         provider_name:
           type: string
 
