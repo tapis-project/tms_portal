@@ -96,6 +96,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/TmsCallbackResponse'
 
+  /resource/{provider_id}:
+    get:
+      tags:
+        - Resource
+      summary: listResources
+      description: Get a list of the resources for a given provider
+      security:
+        - Bearer: [ ]
+      parameters:
+        - name: provider_id
+          in: path
+          required: true
+          description: The uuid of the provider to list resource for
+          schema:
+            type: string
+            format: uuid
+      
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResourcesResponse'
+
   /resource/provider:
     get:
       tags:
@@ -201,6 +226,16 @@ components:
           items:
             $ref: '#/components/schemas/IdentityProvider'
 
+    ListResourcesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+
     ListResourceProvidersResponse:
       type: object
       properties:
@@ -226,6 +261,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         name:
           type: string
         clientId:
@@ -233,6 +269,22 @@ components:
         oauth2TokenUrl:
           type: string
         userInfoUrl:
+          type: string
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        provider_id:
+          type: string
+          format: uuid
+        provider_name:
           type: string
 
     ResourceProviderAuthorizeRequest:

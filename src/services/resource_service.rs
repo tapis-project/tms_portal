@@ -73,7 +73,7 @@ pub async fn get_authenticate_redirect_info(
 
     let oauth_state = OAuth2State {
         client_id: client_id.clone(),
-        idp_id: rp.id.to_string(),
+        idp_id: rp.id,
         redirect_uri: redirect_url.clone(),
         exp: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?

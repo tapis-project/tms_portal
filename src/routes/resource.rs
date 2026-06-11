@@ -120,6 +120,7 @@ pub async fn get_resource_handler(
         name: String::from("Stampede"),
         description: String::from("Stampede at TACC"),
         provider_id: String::from("tacc"),
+        provider_name: String::from("TACC Resource Provider"),
     };
 
     let r2 = Resource {
@@ -127,6 +128,7 @@ pub async fn get_resource_handler(
         name: String::from("Vista"),
         description: String::from("Vista at TACC"),
         provider_id: String::from("tacc"),
+        provider_name: String::from("TACC Resource Provider"),
     };
 
     let r3 = Resource {
@@ -134,6 +136,7 @@ pub async fn get_resource_handler(
         name: String::from("Frontera"),
         description: String::from("Frontera at TACC"),
         provider_id: String::from("tacc"),
+        provider_name: String::from("TACC Resource Provider"),
     };
 
     let result = HashSet::from([r1, r2, r3]);

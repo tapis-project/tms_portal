@@ -8,7 +8,6 @@ use sqlx::{query, PgTransaction, Row};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::str::FromStr;
-use uuid::Uuid;
 /*
 Identity providers can be for either resources or for logins.  There's a boolean for
 the support of each - supports_login, supports_resources.  I guess in retrospect it should
@@ -18,7 +17,7 @@ rather if we allow it.
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct IdentityProvider {
-    pub id: Uuid,
+    pub id: String,
     pub name: String,
     pub client_id: String,
     pub client_secret: String,
@@ -40,7 +39,6 @@ impl TryFrom<&PgRow> for IdentityProvider {
     fn try_from(row: &PgRow) -> anyhow::Result<Self, Self::Error> {
         let provider: &str = row.get("provider_type");
         Ok(IdentityProvider {
-            //            id: Uuid::from_str(provider_id)?,
             id: row.get("id"),
             name: row.get("name"),
             client_id: row.get("client_id"),
