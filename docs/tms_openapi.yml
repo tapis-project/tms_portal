@@ -138,7 +138,7 @@ paths:
                 $ref: '#/components/schemas/ListResourceProvidersResponse'
 
   "/resource/provider/authorize":
-    get:
+    post:
       tags:
         - Resource
       summary: authorizeWithResourceProvider
@@ -292,10 +292,3 @@ components:
         redirect_url:
           type: string
 
-    ResourceProviderAuthorizeResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        result:
-          type: string
