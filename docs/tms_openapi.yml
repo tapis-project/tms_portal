@@ -28,7 +28,8 @@ paths:
           description: Temporary redirect
           headers:
             location:
-              type: string
+              schema:
+                type: string
               description: redirect url
         "400":
           description: Bad Request
@@ -151,12 +152,13 @@ paths:
               $ref: '#/components/schemas/ResourceProviderAuthorizeRequest'
 
       responses:
-        "200":
-          description: Success
-          content:
-            application/json:
+        "307":
+          description: Temporary redirect
+          headers:
+            location:
               schema:
-                $ref: '#/components/schemas/ResourceProviderAuthorizeResponse'
+                type: string
+              description: redirect url
         "401":
           description: Unauthorized
           content:
@@ -177,8 +179,6 @@ components:
     # ------------------------------------------------------------------------------
     # --- Model objects ------------------------------------------------------------
     # ------------------------------------------------------------------------------
-
-    RespBasic:
     TmsErrorResponse:
       type: object
       properties:
