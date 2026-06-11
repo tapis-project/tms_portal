@@ -24,7 +24,7 @@ pub struct ResourceProviderAuthorizeRequest {
 impl From<identity_provider_dao::IdentityProvider> for ResourceProvider {
     fn from(value: identity_provider_dao::IdentityProvider) -> Self {
         ResourceProvider {
-            id: value.id,
+            id: value.id.to_string(),
             name: value.name,
             client_id: value.client_id,
             oauth2_token_url: value.oauth2_token_url,
@@ -32,3 +32,13 @@ impl From<identity_provider_dao::IdentityProvider> for ResourceProvider {
         }
     }
 }
+
+#[derive(Debug, Hash, Serialize, Clone, PartialEq, Eq)]
+pub struct Resource {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub provider_id: String,
+}
+
+pub type GetResourceResponse = HashSet<Resource>;

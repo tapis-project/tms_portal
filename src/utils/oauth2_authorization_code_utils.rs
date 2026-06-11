@@ -1,9 +1,9 @@
 use crate::db::identity_provider_dao::IdentityProvider;
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::login_service::TmsTokenClaims;
-use crate::services::service_error::ServiceError::BadRequest;
+use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::utils::jwt_utils::JwtDecoderBuilder;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use jsonwebtoken::decode_header;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -39,10 +39,16 @@ pub async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTok
     }?;
     tx.commit().await?;
 
-    let tms_token_claims: TmsTokenClaims = JwtDecoderBuilder::builder()
+    let tms_token_claims: TmsTokenClaims = match JwtDecoderBuilder::builder()
         .public_key(key.jwt_public_key.as_bytes())
         .decode(token)
-        .await?;
+        .await
+    {
+        Ok(t) => t,
+        Err(e) => {
+            return Err(Unauthorized(e.to_string()).into());
+        }
+    };
 
     Ok(tms_token_claims)
 }

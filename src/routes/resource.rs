@@ -1,5 +1,7 @@
 use crate::models::general_api::TmsResponse;
-use crate::models::resource_api::{GetResourceProviderResponse, ResourceProviderAuthorizeRequest};
+use crate::models::resource_api::{
+    GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest,
+};
 use crate::services::login_service::decode_state;
 use crate::services::resource_service::{
     get_authenticate_redirect_info, get_resource_provider_token, get_resource_providers,
@@ -11,7 +13,7 @@ use crate::utils::oauth2_authorization_code_utils::{
 };
 use crate::AppState;
 use anyhow::Result;
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::header::LOCATION;
 use axum::routing::{get, post};
 use axum::{debug_handler, extract, Router};
@@ -23,11 +25,13 @@ use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/resource/provider", get(get_resource_provider_handler))
+        .route("/resource/{provider_id}", get(get_resource_handler))
         .route("/resource/provider/authorize", post(authorize_handler))
         .route(
             "/resource/provider/callback",
@@ -94,9 +98,45 @@ pub async fn get_resource_provider_handler(
     let token = &String::from(bearer.token());
 
     // Check that token is valid by getting claims
-    get_token_claims(&app_state.db_pool, token).await?;
+    let _token_claims = get_token_claims(&app_state.db_pool, token).await?;
 
     let result = get_resource_providers(&app_state.db_pool).await?;
+    Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
+}
+#[debug_handler]
+pub async fn get_resource_handler(
+    State(app_state): State<AppState>,
+    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
+    Path(provider_id): Path<String>,
+) -> Result<TmsResponse<GetResourceResponse>, AppError> {
+    // validate token
+    let token = &String::from(bearer.token());
+
+    // Check that token is valid by getting claims
+    let _token_claims = get_token_claims(&app_state.db_pool, token).await?;
+
+    let r1 = Resource {
+        id: Uuid::new_v4().to_string(),
+        name: String::from("Stampede"),
+        description: String::from("Stampede at TACC"),
+        provider_id: String::from("tacc"),
+    };
+
+    let r2 = Resource {
+        id: Uuid::new_v4().to_string(),
+        name: String::from("Vista"),
+        description: String::from("Vista at TACC"),
+        provider_id: String::from("tacc"),
+    };
+
+    let r3 = Resource {
+        id: Uuid::new_v4().to_string(),
+        name: String::from("Frontera"),
+        description: String::from("Frontera at TACC"),
+        provider_id: String::from("tacc"),
+    };
+
+    let result = HashSet::from([r1, r2, r3]);
     Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
 }
 

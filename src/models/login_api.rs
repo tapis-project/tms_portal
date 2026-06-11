@@ -52,7 +52,7 @@ pub type GetIdentityProviderResponse = HashSet<IdentityProvider>;
 impl From<identity_provider_dao::IdentityProvider> for IdentityProvider {
     fn from(value: identity_provider_dao::IdentityProvider) -> Self {
         IdentityProvider {
-            id: value.id,
+            id: value.id.to_string(),
             name: value.name,
             client_id: value.client_id,
             oauth2_token_url: value.oauth2_token_url,

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS identity_providers
 (
-    id                    TEXT PRIMARY KEY            NOT NULL,
+    id                    UUID PRIMARY KEY            NOT NULL DEFAULT gen_random_uuid(),
     name                  TEXT                        NOT NULL,
     client_id             TEXT                        NOT NULL,
     client_secret         TEXT                        NOT NULL,
