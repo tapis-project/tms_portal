@@ -3,7 +3,7 @@ use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::login_service::TmsTokenClaims;
 use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::utils::jwt_utils::JwtDecoderBuilder;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

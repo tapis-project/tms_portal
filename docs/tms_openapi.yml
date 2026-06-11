@@ -11,7 +11,7 @@ servers:
     description: Development Server
 
 paths:
-  /login:
+  "/login":
     post:
       tags:
         - Login
@@ -38,7 +38,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TmsErrorResponse'
 
-  /login/whoami:
+  "/login/whoami":
     get:
       tags:
         - Login
@@ -60,7 +60,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TmsErrorResponse'
 
-  /login/idp:
+  "/login/idp":
     get:
       tags:
         - Login
@@ -74,7 +74,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListLoginIdpResponse'
 
-  /login/callback:
+  "/login/callback":
     get:
       tags:
         - Login
@@ -97,7 +97,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TmsCallbackResponse'
 
-  /resource/{provider_id}:
+  "/resource/{provider_id}":
     get:
       tags:
         - Resource
@@ -121,7 +121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListResourcesResponse'
 
-  /resource/provider:
+  "/resource/provider":
     get:
       tags:
         - Resource
@@ -137,7 +137,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListResourceProvidersResponse'
 
-  /resource/provider/authorize:
+  "/resource/provider/authorize":
     get:
       tags:
         - Resource
