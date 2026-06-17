@@ -1,0 +1,6 @@
+/target
+*.log
+.vscode
+# JetBrains RustRover files
+.idea
+.run
