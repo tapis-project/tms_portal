@@ -26,13 +26,14 @@ use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
+use reqwest::header::HeaderMap;
 use uuid::Uuid;
 
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/resource/provider", get(get_resource_provider_handler))
         .route("/resource/{provider_id}", get(get_resource_handler))
-        .route("/resource/provider/authorize", post(authorize_handler))
+        .route("/resource/provider/authorize", get(authorize_handler))
         .route(
             "/resource/provider/callback",
             get(get_resource_provider_callback_handler),
@@ -41,28 +42,41 @@ pub async fn router() -> Router<AppState> {
 
 #[debug_handler]
 pub async fn authorize_handler(
-    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
+//    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
+    headers: HeaderMap,
     State(app_state): State<AppState>,
     jar: CookieJar,
-    extract::Json(request): extract::Json<ResourceProviderAuthorizeRequest>,
+    query_params: Query<ResourceProviderAuthorizeRequest>
 ) -> Result<(CookieJar, TmsResponse<()>), AppError> {
     // resource provider login will always be TMS client id
     let client_id = String::from(CLIENT_ID_TMS);
     // validate token
-    let token = &String::from(bearer.token());
-    get_token_claims(&app_state.db_pool, token).await?;
+    let auth_header = headers.get(http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    let token = match auth_header {
+        Some(header_value) => {
+            match header_value.strip_prefix("Bearer ") {
+                Some(token) => token.to_string(),
+                _ => return Err(Unauthorized(String::from("No token found")).into())
+            }
+        }
+
+        _ => return Err(Unauthorized(String::from("No token found")).into())
+    };
+
+    get_token_claims(&app_state.db_pool, &token).await?;
 
     let authorize_info = get_authenticate_redirect_info(
         &app_state.db_pool,
         &client_id,
-        &request.provider_id,
-        &request.redirect_url,
+        &query_params.provider_id,
+        &query_params.redirect_url,
     )
     .await?;
     // state cookies are stored in a cookie under RP_COOKIE_PATH named for the resource provider id
     let updated_jar = jar.add(
         Cookie::build((
-            request.provider_id.clone(),
+            query_params.provider_id.clone(),
             authorize_info.encoded_state.clone(),
         ))
         .path(ROOT_COOKIE_PATH)

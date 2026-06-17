@@ -26,6 +26,7 @@ pin-project = "1.1.11"
 tracing-subscriber = "0.3.23"
 base64 = "0.22.1"
 jwtk = { version = "0.5.0", features = ["openssl"] }
+http = "1.4.2"
 
 # had to run this command to get the build to work.  I guess there are issues with 0.3.48 with cookies library.
 # this will fix it.

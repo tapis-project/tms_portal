@@ -2924,6 +2924,7 @@ dependencies = [
  "axum",
  "axum-extra",
  "base64",
+ "http",
  "jsonwebtoken",
  "jwtk",
  "pin-project",

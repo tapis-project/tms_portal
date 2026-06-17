@@ -31,7 +31,11 @@ pub struct OAuth2State {
 }
 
 pub async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenClaims> {
-    let token_header = decode_header(token)?;
+    let token_header = match decode_header(token) {
+        Ok(header) => header,
+        Err(e) => return Err(Unauthorized(e.to_string()).into()),
+    };
+
     let mut tx = db_pool.begin().await?;
     let key = match token_header.kid {
         Some(kid) => db_get_key_by_id(&mut tx, &kid).await,
