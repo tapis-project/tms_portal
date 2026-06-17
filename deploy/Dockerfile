@@ -1,5 +1,5 @@
 ##########################################################################
-# Dockerfile for Tms Auth service
+# Dockerfile for Tms Portal service
 # This file must be placed in the build directory (dependencies)
 #   before docker build is run.
 #
@@ -32,19 +32,19 @@ RUN apt-get install -y vim-tiny
 # Install ca certs
 RUN apt-get install -y ca-certificates
 
-# Add user tms_auth
-RUN useradd -m tms_auth
+# Add user tms_portal
+RUN useradd -m tms_portal
 
-USER tms_auth
+USER tms_portal
 
 # Just copy the jars needed
-WORKDIR /home/tms_auth/app
-COPY --chown=tms_auth:tms_auth ./target/release/tms_authenticator ./
-COPY --from=node_build --chown=tms_auth:tms_auth /client/dist/ ./dist/
-RUN chmod +x ./tms_authenticator
+WORKDIR /home/tms_portal/app
+COPY --chown=tms_portal:tms_portal ./target/release/tms_portal ./
+COPY --from=node_build --chown=tms_portal:tms_portal /client/dist/ ./dist/
+RUN chmod +x ./tms_portal
 
 # Server port, debug port and jmx port
 EXPOSE 8080 
 
-CMD ["./tms_authenticator"]
+CMD ["./tms_portal"]
 
