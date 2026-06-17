@@ -44,7 +44,7 @@ pub async fn router() -> Router<AppState> {
         .route("/login", get(login_handler))
         .route("/login/whoami", get(whoami_handler))
         .route("/login/callback", get(callback_handler))
-        .route("/login/idp", get(get_idp_handler))
+        .route("/login/idps", get(get_idp_handler))
 }
 
 /*

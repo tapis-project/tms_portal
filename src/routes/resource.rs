@@ -31,11 +31,11 @@ use uuid::Uuid;
 
 pub async fn router() -> Router<AppState> {
     Router::new()
-        .route("/resource/provider", get(get_resource_provider_handler))
-        .route("/resource/{provider_id}", get(get_resource_handler))
-        .route("/resource/provider/authorize", get(authorize_handler))
+        .route("/resources/providers", get(get_resource_provider_handler))
+        .route("/resources/{provider_id}", get(get_resource_handler))
+        .route("/resources/providers/authorize", get(authorize_handler))
         .route(
-            "/resource/provider/callback",
+            "/resources/providers/callback",
             get(get_resource_provider_callback_handler),
         )
 }

@@ -60,7 +60,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TmsErrorResponse'
 
-  "/login/idp":
+  "/login/idps":
     get:
       tags:
         - Login
@@ -97,7 +97,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TmsCallbackResponse'
 
-  "/resource/{provider_id}":
+  "/resources/{provider_id}":
     get:
       tags:
         - Resource
@@ -121,7 +121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListResourcesResponse'
 
-  "/resource/provider":
+  "/resources/providers":
     get:
       tags:
         - Resource
@@ -137,7 +137,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListResourceProvidersResponse'
 
-  "/resource/provider/authorize":
+  "/resources/providers/authorize":
     post:
       tags:
         - Resource
