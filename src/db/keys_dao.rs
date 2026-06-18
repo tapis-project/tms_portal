@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use crate::services::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
-use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{query, PgTransaction, Row};
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -8,8 +8,8 @@ pub struct Key {
     pub kid: String,
     pub jwt_public_key: String,
     pub jwt_private_key: String,
-    pub created: PrimitiveDateTime,
-    pub updated: PrimitiveDateTime,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
 }
 
 impl From<&PgRow> for Key {

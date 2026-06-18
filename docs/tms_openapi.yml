@@ -64,7 +64,7 @@ paths:
     get:
       tags:
         - Login
-      summary: getIdp
+      summary: listIdps
       description: Get list of all supported login identity providers
       responses:
         "200":

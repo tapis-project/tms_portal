@@ -3,11 +3,11 @@ use crate::services::service_error::ServiceError::NotFound;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
-use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{query, PgTransaction, Row};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::str::FromStr;
+use chrono::{DateTime, Utc};
 /*
 Identity providers can be for either resources or for logins.  There's a boolean for
 the support of each - supports_login, supports_resources.  I guess in retrospect it should
@@ -30,8 +30,8 @@ pub struct IdentityProvider {
     pub identity_provider_type: IdentityProviderType,
     pub supports_login: bool,
     pub supports_resources: bool,
-    pub created: PrimitiveDateTime,
-    pub updated: PrimitiveDateTime,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
 }
 
 impl TryFrom<&PgRow> for IdentityProvider {

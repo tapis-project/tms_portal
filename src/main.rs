@@ -36,12 +36,12 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let database_host = std::env::var("TMS_AUTH_DB_HOST").expect("TMS_AUTH_DB_HOST must be set");
-    let database_port = std::env::var("TMS_AUTH_DB_PORT").unwrap_or(String::from("5432"));
-    let database_name = std::env::var("TMS_AUTH_DB_NAME").unwrap_or(String::from("tms_auth_db"));
-    let database_user = std::env::var("TMS_AUTH_DB_USER").unwrap_or(String::from("tms_auth_user"));
+    let database_host = std::env::var("TMS_PORTAL_DB_HOST").expect("TMS_PORTAL_DB_HOST must be set");
+    let database_port = std::env::var("TMS_PORTAL_DB_PORT").unwrap_or(String::from("5432"));
+    let database_name = std::env::var("TMS_PORTAL_DB_NAME").unwrap_or(String::from("tms_portal_db"));
+    let database_user = std::env::var("TMS_PORTAL_DB_USER").unwrap_or(String::from("tms_portal_user"));
     let database_password =
-        std::env::var("TMS_AUTH_DB_PASSWORD").expect("TMS_AUTH_DB_PASSWORD must be set");
+        std::env::var("TMS_PORTAL_DB_PASSWORD").expect("TMS_PORTAL_DB_PASSWORD must be set");
 
     let database_url_string = format!(
         "postgres://{0}:{1}@{2}:{3}/{4}",

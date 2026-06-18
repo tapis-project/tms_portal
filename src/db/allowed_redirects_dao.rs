@@ -1,15 +1,15 @@
 use crate::services::service_error::ServiceError::BadRequest;
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Utc};
 use sqlx::postgres::PgRow;
-use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{query, Error, PgTransaction, Row};
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct AllowedRedirect {
     pub uri: String,
     pub client_id: String,
-    pub created: PrimitiveDateTime,
-    pub updated: PrimitiveDateTime,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
 }
 
 impl From<&PgRow> for AllowedRedirect {

@@ -45,6 +45,8 @@ pub struct IdentityProvider {
     pub oauth2_token_url: String,
     #[serde(rename = "userInfoUrl")]
     pub user_info_url: Option<String>,
+    pub created: String,
+    pub updated: String,
 }
 
 pub type GetIdentityProviderResponse = HashSet<IdentityProvider>;
@@ -57,6 +59,8 @@ impl From<identity_provider_dao::IdentityProvider> for IdentityProvider {
             client_id: value.client_id,
             oauth2_token_url: value.oauth2_token_url,
             user_info_url: value.oidc_user_info_url,
+            created: value.created.to_rfc3339(),
+            updated: value.updated.to_rfc3339(),
         }
     }
 }

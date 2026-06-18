@@ -1,28 +1,31 @@
 CREATE TABLE IF NOT EXISTS identity_providers
 (
-    id                    TEXT PRIMARY KEY            NOT NULL,
-    name                  TEXT                        NOT NULL,
-    client_id             TEXT                        NOT NULL,
-    client_secret         TEXT                        NOT NULL,
-    identity_redirect_url TEXT                        NOT NULL,
-    oauth2_token_url      TEXT                        NOT NULL,
+    id                    TEXT PRIMARY KEY  NOT NULL,
+    name                  TEXT              NOT NULL,
+    client_id             TEXT              NOT NULL,
+    client_secret         TEXT              NOT NULL,
+    identity_redirect_url TEXT              NOT NULL,
+    oauth2_token_url      TEXT              NOT NULL,
     oauth2_jwks_url       TEXT,
     oauth2_public_key     TEXT,
     oidc_user_info_url    TEXT,
     scope                 TEXT,
-    provider_type         TEXT                        NOT NULL,
-    supports_login        BOOLEAN                     NOT NULL DEFAULT false,
-    supports_resources    BOOLEAN                     NOT NULL DEFAULT false,
-    created               TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated               TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+    provider_type         TEXT              NOT NULL,
+    supports_login        BOOLEAN           NOT NULL DEFAULT false,
+    supports_resources    BOOLEAN           NOT NULL DEFAULT false,
+    created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
+ALTER TABLE identity_providers OWNER TO tms_portal_user;
+
 
 CREATE TABLE IF NOT EXISTS identity_provider_types
 (
     provider_type TEXT PRIMARY KEY            NOT NULL,
-    created       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated       TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+    created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
+ALTER TABLE identity_providers OWNER TO tms_portal_user;
 
 INSERT INTO identity_provider_types (provider_type)
 VALUES ('globus');
@@ -37,9 +40,10 @@ CREATE TABLE IF NOT EXISTS keys
     kid             TEXT PRIMARY KEY            NOT NULL,
     jwt_public_key  TEXT                        NOT NULL,
     jwt_private_key TEXT                        NOT NULL,
-    created         TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated         TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+    created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
+ALTER TABLE keys OWNER TO tms_portal_user;
 
 CREATE TABLE IF NOT EXISTS clients
 (
@@ -47,25 +51,28 @@ CREATE TABLE IF NOT EXISTS clients
     name    TEXT                        NOT NULL,
     secret  TEXT                        NOT NULL,
     kid     TEXT                        NOT NULL,
-    created TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
     constraint fk_kid FOREIGN KEY (kid) REFERENCES keys (kid)
 );
+ALTER TABLE clients OWNER TO tms_portal_user;
 
 CREATE TABLE IF NOT EXISTS configuration
 (
     config_name  TEXT PRIMARY KEY            NOT NULL,
     config_value JSONB                       NOT NULL,
-    created      TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated      TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
+    created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
+ALTER TABLE configuration OWNER TO tms_portal_user;
 
 CREATE TABLE IF NOT EXISTS allowed_redirects
 (
     uri       TEXT                        NOT NULL,
     client_id TEXT                        NOT NULL,
-    created   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
     constraint fk_client_id FOREIGN KEY (client_id) REFERENCES clients (id)
 );
+ALTER TABLE allowed_redirects OWNER TO tms_portal_user;
 

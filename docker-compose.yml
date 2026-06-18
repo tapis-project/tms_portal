@@ -1,6 +1,6 @@
 ---
 volumes:
-  tms-auth-postgres-data:
+  tms-portal-postgres-data:
 
 networks:
   rabbitmq_netwrk:
@@ -9,14 +9,14 @@ networks:
 services:
   postgres:
     image: postgres:16
-    container_name: tms_auth_postgres
+    container_name: tms_portal_postgres
     labels:
-      name: tms_auth_postgres
+      name: tms_portal_postgres
     restart: always
     environment:
       POSTGRES_PASSWORD: $PG_ADMIN_PASS
     ports:
       - $PG_PORT:5432
     volumes:
-      - tms-auth-postgres-data:/var/lib/postgresql/data
+      - tms-portal-postgres-data:/var/lib/postgresql/data
 

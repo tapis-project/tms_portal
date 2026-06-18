@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use crate::services::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
-use sqlx::types::time::PrimitiveDateTime;
 use sqlx::{query, PgTransaction, Row};
 
 #[derive(Debug)]
@@ -8,8 +8,8 @@ pub struct Client {
     pub id: String,
     pub secret: String,
     pub name: String,
-    pub created: PrimitiveDateTime,
-    pub updated: PrimitiveDateTime,
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
     pub kid: String,
 }
 
