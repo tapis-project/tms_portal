@@ -12,7 +12,9 @@ use jsonwebtoken::signature::rand_core::{OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::time::SystemTime;
+use chrono::{DateTime, Utc};
 use url::Url;
+use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login, ResourceAccountLogin};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessToken {
@@ -96,7 +98,7 @@ pub async fn get_authenticate_redirect_info(
     let mut query_params = vec![
         ("response_type", "code"),
         ("client_id", &rp.client_id),
-        ("redirect_uri", callback_url),
+        ("redirect_uri", redirect_url),
         ("state", &encoded_state),
         ("nonce", &nonce_slice),
         ("access_type", "offline"),
@@ -132,6 +134,24 @@ pub async fn get_resource_provider_token(
 
     let access_token = reponse.result.access_token;
     let refresh_token = reponse.result.refresh_token;
+
+    let mut tx = db_pool.begin().await?;
+
+    let tms_user_id = String::from("");
+    let resource_provider_account = String::from("");
+    let resource_provider_id = provider_id.clone();
+    let last_login = Utc::now();
+    let enabled = false;
+    let auth_token = access_token.access_token.clone();
+    let auth_token_expiration = Utc::now();
+    let refresh_token = refresh_token.refresh_token.clone();
+    let refresh_token_expiration = Utc::now();
+
+    db_add_or_update_resource_account_login(&mut tx, tms_user_id, resource_provider_account,
+                                            resource_provider_id, last_login, enabled, auth_token,
+                                            auth_token_expiration, refresh_token,
+                                            refresh_token_expiration).await?;
+    tx.commit().await?;
 
     Ok(())
 }
