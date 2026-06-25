@@ -95,10 +95,11 @@ pub async fn get_authenticate_redirect_info(
     let mut nonce = [0u8; 12];
     OsRng.fill_bytes(&mut nonce);
     let nonce_slice = BASE64_STANDARD.encode(nonce);
+    let redirect_uri = &http_config.get_resource_provider_callback_url();
     let mut query_params = vec![
         ("response_type", "code"),
         ("client_id", &rp.client_id),
-        ("redirect_uri", redirect_url),
+        ("redirect_uri", redirect_uri),
         ("state", &encoded_state),
         ("nonce", &nonce_slice),
         ("access_type", "offline"),
@@ -132,6 +133,7 @@ pub async fn get_resource_provider_token(
         get_token_for_provider(&rp, &http_config.get_resource_provider_callback_url(), code)
             .await?;
 
+    // these should be in a cookie or something
     let access_token = reponse.result.access_token;
     let refresh_token = reponse.result.refresh_token;
 
@@ -142,15 +144,9 @@ pub async fn get_resource_provider_token(
     let resource_provider_id = provider_id.clone();
     let last_login = Utc::now();
     let enabled = false;
-    let auth_token = access_token.access_token.clone();
-    let auth_token_expiration = Utc::now();
-    let refresh_token = refresh_token.refresh_token.clone();
-    let refresh_token_expiration = Utc::now();
 
     db_add_or_update_resource_account_login(&mut tx, tms_user_id, resource_provider_account,
-                                            resource_provider_id, last_login, enabled, auth_token,
-                                            auth_token_expiration, refresh_token,
-                                            refresh_token_expiration).await?;
+                                            resource_provider_id, last_login, enabled).await?;
     tx.commit().await?;
 
     Ok(())
