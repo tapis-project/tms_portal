@@ -39,6 +39,7 @@ pub struct Resource {
     pub name: String,
     pub description: String,
     pub provider_id: String,
+    pub provider_account_id: String,
     pub provider_name: String,
 }
 

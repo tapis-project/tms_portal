@@ -1,13 +1,7 @@
 use crate::db::identity_provider_dao::IdentityProvider;
-use crate::db::keys_dao::db_get_key_by_id;
-use crate::services::login_service::TmsTokenClaims;
-use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
-use crate::utils::jwt_utils::JwtDecoderBuilder;
 use anyhow::{Context, Result};
-use jsonwebtoken::decode_header;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use tracing::debug;
 
 pub const ROOT_COOKIE_PATH: &str = "/";
@@ -29,33 +23,6 @@ pub struct OAuth2State {
     pub client_id: String,
     pub exp: u64,
     pub redirect_uri: String,
-}
-
-pub async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenClaims> {
-    let token_header = match decode_header(token) {
-        Ok(header) => header,
-        Err(e) => return Err(Unauthorized(e.to_string()).into()),
-    };
-
-    let mut tx = db_pool.begin().await?;
-    let key = match token_header.kid {
-        Some(kid) => db_get_key_by_id(&mut tx, &kid).await,
-        None => return Err(BadRequest(String::from("Unable to find key for jwt")).into()),
-    }?;
-    tx.commit().await?;
-
-    let tms_token_claims: TmsTokenClaims = match JwtDecoderBuilder::builder()
-        .public_key(key.jwt_public_key.as_bytes())
-        .decode(token)
-        .await
-    {
-        Ok(t) => t,
-        Err(e) => {
-            return Err(Unauthorized(e.to_string()).into());
-        }
-    };
-
-    Ok(tms_token_claims)
 }
 
 /*

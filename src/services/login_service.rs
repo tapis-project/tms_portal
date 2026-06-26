@@ -205,7 +205,7 @@ pub async fn make_auth_token(
     let issuer = http_config.base_url;
     let subject = claims.get_string_claim(CLAIM_SUB)?;
     let provider = idp.identity_provider_type.clone();
-    let idp_id = claims.get_string_claim(CLAIM_IDP)?;
+    let idp_id = idp.id.clone();
     let tms_subject = format!("{0}@{1}", &subject, &idp_id);
     let tms_username = tms_subject.clone();
 

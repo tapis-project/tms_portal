@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8", features = ["macros"] }
+axum = { version = "0.8.9", features = ["macros"] }
 axum-extra = { version = "0.12.5", features = ["cookie", "cookie-private", "typed-header"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -22,7 +22,7 @@ anyhow = "1.0.102"
 uuid = { version = "1.22.0", features = ["v4"] }
 tower-http = { version = "0.6.8", features = ["trace", "fs"] }
 tracing = "0.1.44"
-pin-project = "1.1.11"
+#pin-project = "1.1.11"
 tracing-subscriber = "0.3.23"
 base64 = "0.22.1"
 jwtk = { version = "0.5.0", features = ["openssl"] }

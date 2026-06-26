@@ -8,27 +8,22 @@ use crate::services::resource_service::{
 };
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::Unauthorized;
-use crate::utils::oauth2_authorization_code_utils::{
-    get_token_claims, AuthCodeQueryParams, CLIENT_ID_TMS, ROOT_COOKIE_PATH,
-};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, CLIENT_ID_TMS};
 use crate::AppState;
 use anyhow::Result;
 use axum::extract::{Path, Query, State};
 use axum::http::header::LOCATION;
-use axum::routing::{get, post};
-use axum::{debug_handler, extract, Router};
+use axum::routing::{get};
+use axum::{debug_handler, Router};
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
-use axum_extra::headers::authorization::Bearer;
-use axum_extra::headers::Authorization;
-use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
-use reqwest::header::HeaderMap;
 use uuid::Uuid;
+use crate::utils::jwt_utils::JwtExtractor;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";
 const RP_COOKIE_PATH:&str = "/resources/providers";
@@ -36,7 +31,7 @@ const RP_COOKIE_PATH:&str = "/resources/providers";
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/resources/providers", get(get_resource_provider_handler))
-        .route("/resources/{provider_id}", get(get_resource_handler))
+        .route("/resources/{provider_id}/{provider_account_id}", get(get_resource_handler))
         .route("/resources/providers/authorize", get(authorize_handler))
         .route(
             "/resources/providers/callback",
@@ -46,32 +41,16 @@ pub async fn router() -> Router<AppState> {
 
 #[debug_handler]
 pub async fn authorize_handler(
-//    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
-    headers: HeaderMap,
     State(app_state): State<AppState>,
     jar: CookieJar,
-    query_params: Query<ResourceProviderAuthorizeRequest>
+    query_params: Query<ResourceProviderAuthorizeRequest>,
+    JwtExtractor(security_context): JwtExtractor
 ) -> Result<(CookieJar, TmsResponse<()>), AppError> {
     // resource provider login will always be TMS client id
     let client_id = String::from(CLIENT_ID_TMS);
-    // validate token
-    let auth_header = headers.get(http::header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok());
-    let token = match auth_header {
-        Some(header_value) => {
-            match header_value.strip_prefix("Bearer ") {
-                Some(token) => token.to_string(),
-                _ => return Err(Unauthorized(String::from("No token found")).into())
-            }
-        }
-
-        _ => return Err(Unauthorized(String::from("No token found")).into())
-    };
-
-    let tokenClaims = get_token_claims(&app_state.db_pool, &token).await?;
 
     let authorize_info = get_authenticate_redirect_info(
-        &tokenClaims.get_sub()?,
+        &security_context.tms_identity,
         &app_state.db_pool,
         &client_id,
         &query_params.provider_id,
@@ -115,34 +94,26 @@ fn get_rp_state_cookie_name(rp_name:&String) -> String {
 #[debug_handler]
 pub async fn get_resource_provider_handler(
     State(app_state): State<AppState>,
-    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
+    // JwtExtractor validates the token token
+    JwtExtractor(_security_context): JwtExtractor
 ) -> Result<TmsResponse<GetResourceProviderResponse>, AppError> {
-    // validate token
-    let token = &String::from(bearer.token());
-
-    // Check that token is valid by getting claims
-    let _token_claims = get_token_claims(&app_state.db_pool, token).await?;
-
     let result = get_resource_providers(&app_state.db_pool).await?;
     Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
 }
 #[debug_handler]
 pub async fn get_resource_handler(
-    State(app_state): State<AppState>,
-    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
-    Path(provider_id): Path<String>,
+    State(_app_state): State<AppState>,
+    // JwtExtractor validates the token token
+    JwtExtractor(_tms_identity): JwtExtractor,
+    Path((provider_id, provider_account_id)): Path<(String, String)>,
 ) -> Result<TmsResponse<GetResourceResponse>, AppError> {
-    // validate token
-    let token = &String::from(bearer.token());
-
     // Check that token is valid by getting claims
-    let _token_claims = get_token_claims(&app_state.db_pool, token).await?;
-
     let r1 = Resource {
         id: Uuid::new_v4().to_string(),
         name: String::from("Stampede"),
         description: String::from("Stampede at TACC"),
-        provider_id: String::from("tacc"),
+        provider_id: provider_id.clone(),
+        provider_account_id: provider_account_id.clone(),
         provider_name: String::from("TACC Resource Provider"),
     };
 
@@ -150,7 +121,8 @@ pub async fn get_resource_handler(
         id: Uuid::new_v4().to_string(),
         name: String::from("Vista"),
         description: String::from("Vista at TACC"),
-        provider_id: String::from("tacc"),
+        provider_id: provider_id.clone(),
+        provider_account_id: provider_account_id.clone(),
         provider_name: String::from("TACC Resource Provider"),
     };
 
@@ -158,7 +130,8 @@ pub async fn get_resource_handler(
         id: Uuid::new_v4().to_string(),
         name: String::from("Frontera"),
         description: String::from("Frontera at TACC"),
-        provider_id: String::from("tacc"),
+        provider_id: provider_id.clone(),
+        provider_account_id: provider_account_id.clone(),
         provider_name: String::from("TACC Resource Provider"),
     };
 
@@ -184,9 +157,12 @@ pub async fn get_resource_provider_callback_handler(
         return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
 
+    let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_string()).await?;
+
     get_resource_provider_token(
         &app_state.db_pool,
         &resource_provider_id,
+        &decoded_state.tms_identity,
         &query_params.code,
     )
     .await?;

@@ -1,9 +1,7 @@
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
-use sqlx::{query, Error, PgTransaction, Row};
+use sqlx::{query, PgTransaction, Row};
 use sqlx::postgres::PgRow;
-use crate::db::allowed_redirects_dao::AllowedRedirect;
-use crate::services::service_error::ServiceError::BadRequest;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ResourceAccountLogin {
@@ -36,7 +34,7 @@ pub async fn db_add_or_update_resource_account_login<'a>(
     tx: &mut PgTransaction<'a>, tms_user_id: String, resource_provider_account: String, resource_provider_id: String,
     last_login: DateTime<Utc>, enabled:bool,
 ) -> anyhow::Result<ResourceAccountLogin> {
-    let raLogin = ResourceAccountLogin {
+    let ra_login = ResourceAccountLogin {
         id:0,
         tms_user_id,
         resource_provider_account,
@@ -55,10 +53,10 @@ pub async fn db_add_or_update_resource_account_login<'a>(
                           DO UPDATE SET last_login=excluded.last_login
              returning *",
     )
-    .bind(raLogin.tms_user_id)
-    .bind(raLogin.resource_provider_account)
-    .bind(raLogin.resource_provider_id)
-    .bind(raLogin.enabled)
+    .bind(ra_login.tms_user_id)
+    .bind(ra_login.resource_provider_account)
+    .bind(ra_login.resource_provider_id)
+    .bind(ra_login.enabled)
     .bind(Utc::now())
     .fetch_one(&mut **tx)
     .await {

@@ -15,7 +15,7 @@ use std::time::SystemTime;
 use chrono::{Utc};
 use serde_json::Value;
 use url::Url;
-use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login, ResourceAccountLogin};
+use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login};
 use crate::services::service_error::AppError;
 use crate::utils::jwt_utils::JwtDecoderBuilder;
 
@@ -96,7 +96,6 @@ pub async fn get_authenticate_redirect_info(
     let mut tx = db_pool.begin().await?;
     let http_config = db_get_http_config(&mut tx).await?;
     tx.commit().await?;
-    let callback_url = &http_config.get_identity_provider_callback_url();
     let mut nonce = [0u8; 12];
     OsRng.fill_bytes(&mut nonce);
     let nonce_slice = BASE64_STANDARD.encode(nonce);
@@ -127,6 +126,7 @@ pub async fn get_authenticate_redirect_info(
 pub async fn get_resource_provider_token(
     db_pool: &PgPool,
     provider_id: &String,
+    tms_identity: &String,
     code: &String,
 ) -> Result<(), AppError> {
     let mut tx = db_pool.begin().await?;
@@ -164,7 +164,7 @@ pub async fn get_resource_provider_token(
 
     let mut tx = db_pool.begin().await?;
 
-    let tms_user_id = String::from("");
+    let tms_user_id = tms_identity.to_string();
     let resource_provider_account = subject;
     let resource_provider_id = provider_id.clone();
     let last_login = Utc::now();
