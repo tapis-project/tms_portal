@@ -142,7 +142,7 @@ paths:
       tags:
         - Resource
       summary: authorizeWithResourceProvider
-      description: Get a list of the resource providers
+      description: Authorization for a resource provider
       security:
         - Bearer: [ ]
       requestBody:

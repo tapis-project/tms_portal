@@ -28,6 +28,11 @@ const CLAIM_IDP: &str = "identity_provider";
 const CLAIM_NAME: &str = "name";
 const CLAIM_IDP_DISPLAY_NAME: &str = "identity_provider_display_name";
 const CLAIM_ORGANIZATION: &str = "organization";
+pub type JwtClaims = HashMap<String, Value>;
+
+pub trait Claims {
+    fn get_string_claim(&self, name: &str) -> Result<String>;
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthorizationCodeResponse {
@@ -65,6 +70,15 @@ pub struct TmsTokenClaims {
     #[serde(rename = "tms/organization", skip_serializing_if = "Option::is_none")]
     pub tms_organization: Option<Value>,
     pub exp: Value,
+}
+
+impl TmsTokenClaims {
+    pub fn get_jti(&self) -> Result<String> {
+        get_string_from_value(&self.jti)
+    }
+    pub fn get_sub(&self) -> Result<String> {
+        get_string_from_value(&self.sub)
+    }
 }
 
 pub async fn get_identity_providers(pool: &PgPool) -> Result<GetIdentityProviderResponse> {
@@ -178,7 +192,7 @@ pub async fn make_auth_token(
     db_pool: &PgPool,
     client_id: &String,
     idp: &identity_provider_dao::IdentityProvider,
-    claims: HashMap<String, Value>,
+    claims: JwtClaims,
 ) -> Result<String> {
     let mut tx = db_pool.begin().await?;
     let http_config = db_get_http_config(&mut tx).await?;
@@ -189,9 +203,9 @@ pub async fn make_auth_token(
     tx.commit().await?;
 
     let issuer = http_config.base_url;
-    let subject = get_string_claim(&claims, CLAIM_SUB).await?;
+    let subject = claims.get_string_claim(CLAIM_SUB)?;
     let provider = idp.identity_provider_type.clone();
-    let idp_id = get_string_claim(&claims, CLAIM_IDP).await?;
+    let idp_id = claims.get_string_claim(CLAIM_IDP)?;
     let tms_subject = format!("{0}@{1}", &subject, &idp_id);
     let tms_username = tms_subject.clone();
 
@@ -226,15 +240,23 @@ pub async fn make_auth_token(
     .encode()
     .await
 }
-async fn get_string_claim(claims: &HashMap<String, Value>, name: &str) -> Result<String> {
+
+impl Claims for JwtClaims {
+    fn get_string_claim(&self, name: &str) -> Result<String> {
+        get_string_claim(self, name)
+    }
+}
+fn get_string_claim(claims:&JwtClaims, name: &str) -> Result<String> {
     let value = claims.get(name).ok_or(Unauthorized(format!(
         "Unable to find '{0}' claim in identity token",
         name
-    )))?;
-
+    ))).context(format!("Claim name: {0}", name))?;
+    get_string_from_value(value)
+}
+fn get_string_from_value(value:&Value) -> Result<String> {
     let string_slice_value = value
         .as_str()
-        .ok_or(Unauthorized(format!("Claim '{0}' is not a string", name)))?;
+        .ok_or(Unauthorized(format!("Value '{0}' is not a string", value)))?;
     Ok(String::from(string_slice_value))
 }
 

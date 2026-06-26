@@ -71,6 +71,7 @@ pub async fn login_handler(
     match idp {
         Ok(idp) => {
             let oauth_state = OAuth2State {
+                tms_identity: String::default(), // we don't have a tms identity at this point
                 client_id,
                 idp_id: form_data.idp_id.clone(),
                 redirect_uri: form_data.redirect_uri.clone(),

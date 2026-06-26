@@ -26,8 +26,12 @@ use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
+use std::string::ToString;
 use reqwest::header::HeaderMap;
 use uuid::Uuid;
+
+const RP_STATE_PREFIX:&str = "state_rp_id_";
+const RP_COOKIE_PATH:&str = "/resources/providers";
 
 pub async fn router() -> Router<AppState> {
     Router::new()
@@ -64,22 +68,23 @@ pub async fn authorize_handler(
         _ => return Err(Unauthorized(String::from("No token found")).into())
     };
 
-    get_token_claims(&app_state.db_pool, &token).await?;
+    let tokenClaims = get_token_claims(&app_state.db_pool, &token).await?;
 
     let authorize_info = get_authenticate_redirect_info(
+        &tokenClaims.get_sub()?,
         &app_state.db_pool,
         &client_id,
         &query_params.provider_id,
         &query_params.redirect_url,
     )
     .await?;
-    // state cookies are stored in a cookie under RP_COOKIE_PATH named for the resource provider id
+
     let updated_jar = jar.add(
         Cookie::build((
-            query_params.provider_id.clone(),
+            get_rp_state_cookie_name(&query_params.provider_id),
             authorize_info.encoded_state.clone(),
         ))
-        .path(ROOT_COOKIE_PATH)
+        .path(RP_COOKIE_PATH)
         .http_only(true),
     );
 
@@ -101,6 +106,10 @@ pub async fn authorize_handler(
             .headers(headers)
             .build(),
     ))
+}
+
+fn get_rp_state_cookie_name(rp_name:&String) -> String {
+    format!("{RP_STATE_PREFIX}{rp_name}")
 }
 
 #[debug_handler]
@@ -167,7 +176,7 @@ pub async fn get_resource_provider_callback_handler(
     let resource_provider_id = decoded_state.idp_id;
 
     // Get the state cookie set during the login process.
-    let Some(state_cookie) = jar.get(&resource_provider_id) else {
+    let Some(state_cookie) = jar.get(get_rp_state_cookie_name(&resource_provider_id).as_str()) else {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
     };
 
@@ -186,7 +195,10 @@ pub async fn get_resource_provider_callback_handler(
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), decoded_state.redirect_uri)].into_iter());
 
-    let updated_jar = jar.remove(Cookie::from(resource_provider_id));
+    let removal_cookie = Cookie::build(
+        (get_rp_state_cookie_name(&resource_provider_id), String::from("")))
+        .path(RP_COOKIE_PATH);
+    let updated_jar = jar.remove(removal_cookie);
 
     Ok((
         updated_jar,

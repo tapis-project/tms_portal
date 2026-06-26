@@ -24,6 +24,7 @@ pub struct AuthCodeQueryParams {
 pub struct OAuth2State {
     // TODO: generate crypto random nonce (or something)
     // TODO: can the expiration work better?
+    pub tms_identity: String,
     pub idp_id: String,
     pub client_id: String,
     pub exp: u64,
