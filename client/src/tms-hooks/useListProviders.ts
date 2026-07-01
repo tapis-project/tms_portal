@@ -14,7 +14,9 @@ export type Provider = {
 }
 
 const fetchProviders = async () => {
-  const { data } = await httpClient.get<{result: Provider[]}>("/resource/provider")
+  const { data } = await httpClient.get<{ result: Provider[] }>(
+    "/resources/providers"
+  )
   return data?.result
 }
 

@@ -10,8 +10,8 @@ export type Resource = {
   id: string
   name: string
   description: string
-  type: string
-  linked: boolean
+  provider_id: string
+  provider_name: string
 }
 
 async function fetchResources({ providerId, userId }: ResourceParams) {
@@ -23,7 +23,7 @@ async function fetchResources({ providerId, userId }: ResourceParams) {
 
 export function useListResources({ providerId, userId }: ResourceParams) {
   return useQuery({
-    queryKey: ["resources", providerId, userId],
+    queryKey: ["resources", providerId],
     queryFn: () => fetchResources({ providerId, userId }),
   })
 }
