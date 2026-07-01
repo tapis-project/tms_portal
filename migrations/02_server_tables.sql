@@ -7,33 +7,33 @@
 CREATE TABLE IF NOT EXISTS resource_provider_account_logins
 (
     id                          SERIAL PRIMARY KEY,
-    tms_user_id                 TEXT NOT NULL,
+    tms_identity                 TEXT NOT NULL,
     resource_provider_account   TEXT NOT NULL,
     resource_provider_uuid      UUID NOT NULL,
     last_login                  TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
     enabled                     BOOLEAN NOT NULL,
     created                     TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
     updated                     TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    UNIQUE (tms_user_id, resource_provider_uuid, resource_provider_account),
+    UNIQUE (tms_identity, resource_provider_uuid, resource_provider_account),
     FOREIGN KEY(resource_provider_uuid) REFERENCES identity_providers(uuid)
 );
 
 -- -- ---------------------------------------
 -- -- user_hosts table
 -- -- ---------------------------------------
--- -- If both tms_user_id and host_account are set to "*",
+-- -- If both tms_identity and host_account are set to "*",
 -- -- then all users have their identity linked on host.
 -- CREATE TABLE IF NOT EXISTS user_hosts
 -- (
 --     id                SERIAL PRIMARY KEY,
---     tms_user_id       TEXT NOT NULL,
+--     tms_identity       TEXT NOT NULL,
 --     host              TEXT NOT NULL,
 --     host_account      TEXT NOT NULL,
 --     expires_at        TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
 --     created           TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
 --     updated           TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
---     UNIQUE (tms_user_id, host, host_account),
---     FOREIGN KEY(tms_user_id) REFERENCES resource_provider_account_logins(tms_user_id) ON UPDATE CASCADE ON DELETE CASCADE
+--     UNIQUE (tms_identity, host, host_account),
+--     FOREIGN KEY(tms_identity) REFERENCES resource_provider_account_logins(tms_identity) ON UPDATE CASCADE ON DELETE CASCADE
 -- );
 --
 -- -- ---------------------------------------
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS resource_provider_account_logins
 --     created           TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
 --     updated           TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
 --     UNIQUE (client_id, client_user_id),
---     FOREIGN KEY(client_user_id) REFERENCES resource_provider_account_logins(tms_user_id) ON UPDATE CASCADE ON DELETE CASCADE,
+--     FOREIGN KEY(client_user_id) REFERENCES resource_provider_account_logins(tms_identity) ON UPDATE CASCADE ON DELETE CASCADE,
 --     FOREIGN KEY(client_id) REFERENCES clients(id) ON UPDATE CASCADE ON DELETE CASCADE
 -- );
 --

@@ -17,7 +17,7 @@ use serde_json::Value;
 use url::Url;
 use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login};
 use crate::services::service_error::AppError;
-use crate::utils::jwt_utils::JwtDecoderBuilder;
+use crate::utils::jwt_utils::{JwtDecoderBuilder, SecurityContext};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessToken {
@@ -54,9 +54,10 @@ pub struct ResourceProviderAuthorizeInfo {
     pub client_id: String,
     pub client_secret: String,
 }
-pub async fn get_resource_providers(db_pool: &PgPool) -> Result<GetResourceProviderResponse> {
+pub async fn get_resource_providers(security_context:&SecurityContext, db_pool: &PgPool, linked_only: &bool) -> Result<GetResourceProviderResponse> {
     let mut tx = db_pool.begin().await?;
-    let rps = db_get_resource_providers(&mut tx).await?;
+    let rps =
+        db_get_resource_providers(&mut tx, &security_context.tms_identity, linked_only).await?;
     tx.commit().await?;
 
     let mut resource_provider_result = GetResourceProviderResponse::new();
@@ -161,13 +162,13 @@ pub async fn get_resource_provider_token(
 
     let mut tx = db_pool.begin().await?;
 
-    let tms_user_id = tms_identity.to_string();
+    let tms_identity = tms_identity.to_string();
     let resource_provider_account = subject;
     let resource_provider_uuid = rp.uuid;
     let last_login = Utc::now();
     let enabled = false;
 
-    db_add_or_update_resource_account_login(&mut tx, tms_user_id, resource_provider_account.to_string(),
+    db_add_or_update_resource_account_login(&mut tx, tms_identity, resource_provider_account.to_string(),
                                             resource_provider_uuid, last_login, enabled).await?;
     tx.commit().await?;
 

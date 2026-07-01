@@ -131,10 +131,17 @@ paths:
     get:
       tags:
         - Resource
-      summary: getResourceProviders
+      summary: listResourceProviders
       description: Get a list of the resource providers
       security:
         - Bearer: [ ]
+      parameters:
+        - name: linked_only
+          description: If set to true, only previously linked providers will be returned
+          schema:
+            type: bool
+            default: false
+          in: query
       responses:
         "200":
           description: Success

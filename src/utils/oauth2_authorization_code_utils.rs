@@ -14,6 +14,12 @@ pub struct AuthCodeQueryParams {
     pub code: String,
     pub state: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ListResourceProviderRequestParams {
+    pub linked_only: Option<bool>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OAuth2State {
     // TODO: generate crypto random nonce (or something)

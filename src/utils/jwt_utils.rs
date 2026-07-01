@@ -24,7 +24,7 @@ pub struct SecurityContext {
     pub tms_identity: String,
 //    pub tms_token_claims: TmsTokenClaims,
 }
-pub struct JwtExtractor (pub SecurityContext);
+pub struct JwtValidator(pub SecurityContext);
 const TMS_TOKEN_COOKIE_NAME: &str = "tmstoken";
 
 async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenClaims> {
@@ -53,7 +53,8 @@ async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenCl
 
     Ok(tms_token_claims)
 }
-impl FromRequestParts<AppState> for JwtExtractor where {
+impl FromRequestParts<AppState> for JwtValidator
+where {
     type Rejection = AppError;
 
     async fn from_request_parts(req_parts: &mut Parts, app_state: &AppState) -> Result<Self, Self::Rejection> {
@@ -79,7 +80,7 @@ impl FromRequestParts<AppState> for JwtExtractor where {
             let jwt_claims = get_token_claims(&app_state.db_pool, &bearer).await?;
             let tms_identity = jwt_claims.get_sub()?;
             dbg!(&tms_identity);
-            Ok(JwtExtractor(SecurityContext {
+            Ok(JwtValidator(SecurityContext {
                 tms_identity: tms_identity.to_string(),
                 // we can add more to this if we need to
 //                tms_token_claims: jwt_claims,
