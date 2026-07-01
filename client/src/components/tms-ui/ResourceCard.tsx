@@ -1,4 +1,4 @@
-import { CheckIcon, Server, Link2, Unplug } from "lucide-react"
+import { Server } from "lucide-react"
 
 import {
   Card,
@@ -6,12 +6,12 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardAction,
+  // CardAction,
 } from "@/components/ui/card"
 
-import { Button } from "@/components/ui/button"
+//import { Button } from "@/components/ui/button"
 
-import { Badge } from "@/components/ui/badge"
+//import { Badge } from "@/components/ui/badge"
 import type { Resource } from "@/tms-hooks"
 
 export function ResourceCard({ resource }: { resource: Resource }) {
@@ -25,6 +25,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           <span className="inline-block align-middle break-all">
             {resource.name}
           </span>{" "}
+          {/* 
           {resource.linked ? (
             <Badge
               className="rounded-[10px] bg-(--success) align-middle"
@@ -38,13 +39,14 @@ export function ResourceCard({ resource }: { resource: Resource }) {
               Unlinked
             </Badge>
           )}
+                 */}
         </CardTitle>
         <CardDescription className="col-span-2 space-y-2">
           <p>
-            <Server className="inline size-5" /> {resource.type}
+            <Server className="inline size-5" />
           </p>
         </CardDescription>
-
+        {/* 
         <CardAction className="col-span-2 col-start-1 sm:col-span-1 sm:col-start-2">
           {resource.linked ? (
             <Button variant="destructive">
@@ -58,6 +60,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
             </Button>
           )}
         </CardAction>
+        */}
       </CardHeader>
       <CardContent>
         <CardDescription>

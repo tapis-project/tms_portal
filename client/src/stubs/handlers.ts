@@ -1,4 +1,4 @@
-import { http, HttpResponse, type JsonBodyType } from "msw"
+import { http, HttpResponse } from "msw"
 
 const providerStubs = [
   {
@@ -25,73 +25,36 @@ const providerLinkageStubs = [
   },
 ]
 
-const resourceStubs: Record<string, Record<string, JsonBodyType>> = {
-  tacc: {
-    jarosenb: [
-      {
-        id: "frontera",
-        name: "Frontera",
-        type: "compute",
-        linked: true,
-        description:
-          "Deployed in June 2019, Frontera is the fastest supercomputer on a university campus in the U.S.",
-      },
-      {
-        id: "stampede3",
-        name: "Stampede3",
-        type: "compute",
-        linked: false,
-        description:
-          "Stampede3 is the newest strategic resource for the nation's open science community since entering full production in 2024.",
-      },
-    ],
-    jarosenb_TEST: [
-      {
-        id: "frontera",
-        name: "Frontera",
-        type: "compute",
-        linked: true,
-        description:
-          "Deployed in June 2019, Frontera is the fastest supercomputer on a university campus in the U.S.",
-      },
-      {
-        id: "corral",
-        name: "Corral",
-        type: "storage",
-        linked: false,
-        description:
-          "Corral is TACC's primary data-management and storage resource for supporting the creation and curation of research data collections.",
-      },
-    ],
+const resourceStubs: Record<string, string>[] = [
+  {
+    id: "cffc01ff-a85d-437c-aebb-a42e05b817a9",
+    name: "Stampede",
+    description: "Stampede at TACC",
+    provider_id: "tacc",
+    provider_name: "TACC Resource Provider",
   },
-  rp_sdsc: {
-    jrosenberg: [
-      {
-        id: "expanse",
-        name: "Expanse",
-        type: "compute",
-        linked: true,
-        description:
-          "Expanse supports SDSC's vision of “Computing without Boundaries” by increasing the capacity and performance for thousands of users of batch-oriented and science gateway computing.",
-      },
-      {
-        id: "voyager",
-        name: "Voyager",
-        type: "compute",
-        linked: false,
-        description:
-          "Voyager is an innovative AI system designed specifically for science and engineering research at scale.",
-      },
-    ],
+  {
+    id: "131d94fb-984e-4ce5-8f4f-adb965e7bc47",
+    name: "Frontera",
+    description: "Frontera at TACC",
+    provider_id: "tacc",
+    provider_name: "TACC Resource Provider",
   },
-}
+  {
+    id: "7982b11e-f823-491e-9863-1096588f98f1",
+    name: "Vista",
+    description: "Vista at TACC",
+    provider_id: "tacc",
+    provider_name: "TACC Resource Provider",
+  },
+]
 
 export const handlers = [
   http.get("/login/whoami", () => {
     return HttpResponse.json({ result: whoamiStub })
   }),
 
-  http.get("/resource/provider", () => {
+  http.get("/resources/providers", () => {
     return HttpResponse.json({ result: providerStubs })
   }),
 
@@ -99,12 +62,9 @@ export const handlers = [
     return HttpResponse.json({ result: providerLinkageStubs })
   }),
 
-  http.get<{ provider: string; userId: string }>(
-    "/resources/:provider/:userId",
-    ({ params }) => {
-      return HttpResponse.json({
-        result: resourceStubs[params.provider][params.userId],
-      })
-    }
-  ),
+  http.get<{ provider: string; userId: string }>("/resources", () => {
+    return HttpResponse.json({
+      result: resourceStubs,
+    })
+  }),
 ]

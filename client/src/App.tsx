@@ -65,8 +65,12 @@ function LinkIdentityModal() {
               <span>
                 {provider.name} ({provider.id})
               </span>
-              <Button size="sm" className="bg-(--success)">
-                Connect
+              <Button size="sm" asChild>
+                <a
+                  href={`/resources/providers/authorize?provider_id=${provider.oauth2TokenUrl}&redirect_url=${window.location.origin}`}
+                >
+                  Connect
+                </a>
               </Button>
             </div>
           )
