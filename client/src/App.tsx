@@ -67,7 +67,7 @@ function LinkIdentityModal() {
               </span>
               <Button size="sm" asChild>
                 <a
-                  href={`/resources/providers/authorize?provider_id=${provider.oauth2TokenUrl}&redirect_url=${window.location.origin}`}
+                  href={`/resources/providers/authorize?provider_id=${provider.id}&redirect_url=${window.location.origin}`}
                 >
                   Connect
                 </a>

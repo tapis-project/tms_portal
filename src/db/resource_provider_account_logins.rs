@@ -2,13 +2,14 @@ use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use sqlx::{query, PgTransaction, Row};
 use sqlx::postgres::PgRow;
+use uuid::Uuid;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ResourceAccountLogin {
     pub id:i32,
     pub tms_user_id:String,
     pub resource_provider_account:String,
-    pub resource_provider_id:String,
+    pub resource_provider_uuid:Option<Uuid>,
     pub last_login:DateTime<Utc>,
     pub enabled:bool,
     pub created:DateTime<Utc>,
@@ -21,7 +22,7 @@ impl From<&PgRow> for ResourceAccountLogin {
             id:row.get("id"),
             tms_user_id:row.get("tms_user_id"),
             resource_provider_account:row.get("resource_provider_account"),
-            resource_provider_id:row.get("resource_provider_id"),
+            resource_provider_uuid:row.get("resource_provider_uuid"),
             last_login:row.get("last_login"),
             enabled:row.get("enabled"),
             created:row.get("created"),
@@ -31,14 +32,14 @@ impl From<&PgRow> for ResourceAccountLogin {
 }
 
 pub async fn db_add_or_update_resource_account_login<'a>(
-    tx: &mut PgTransaction<'a>, tms_user_id: String, resource_provider_account: String, resource_provider_id: String,
-    last_login: DateTime<Utc>, enabled:bool,
+    tx: &mut PgTransaction<'a>, tms_user_id: String, resource_provider_account: String,
+    resource_provider_uuid: Option<Uuid>, last_login: DateTime<Utc>, enabled:bool,
 ) -> anyhow::Result<ResourceAccountLogin> {
     let ra_login = ResourceAccountLogin {
         id:0,
         tms_user_id,
         resource_provider_account,
-        resource_provider_id,
+        resource_provider_uuid,
         last_login,
         enabled,
         created:Utc::now(),
@@ -47,16 +48,17 @@ pub async fn db_add_or_update_resource_account_login<'a>(
 
     match query(
         "INSERT INTO resource_provider_account_logins
-            (tms_user_id, resource_provider_account, resource_provider_id,
+            (tms_user_id, resource_provider_account, resource_provider_uuid,
              enabled, last_login) VALUES ($1, $2, $3, $4, $5)
-                      ON CONFLICT (tms_user_id, resource_provider_id, resource_provider_account)
+                      ON CONFLICT (tms_user_id, resource_provider_uuid, resource_provider_account)
                           DO UPDATE SET last_login=excluded.last_login
              returning *",
     )
     .bind(ra_login.tms_user_id)
     .bind(ra_login.resource_provider_account)
-    .bind(ra_login.resource_provider_id)
+    .bind(ra_login.resource_provider_uuid)
     .bind(ra_login.enabled)
+    .bind(ra_login.last_login)
     .bind(Utc::now())
     .fetch_one(&mut **tx)
     .await {

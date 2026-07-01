@@ -9,15 +9,14 @@ CREATE TABLE IF NOT EXISTS resource_provider_account_logins
     id                          SERIAL PRIMARY KEY,
     tms_user_id                 TEXT NOT NULL,
     resource_provider_account   TEXT NOT NULL,
-    resource_provider_id        TEXT NOT NULL,
+    resource_provider_uuid      UUID NOT NULL,
     last_login                  TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
     enabled                     BOOLEAN NOT NULL,
     created                     TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
     updated                     TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    UNIQUE (tms_user_id, resource_provider_id, resource_provider_account),
-    FOREIGN KEY(resource_provider_id) REFERENCES identity_providers(id)
+    UNIQUE (tms_user_id, resource_provider_uuid, resource_provider_account),
+    FOREIGN KEY(resource_provider_uuid) REFERENCES identity_providers(uuid)
 );
-ALTER TABLE resource_provider_account_logins OWNER TO tms_portal_user;
 
 -- -- ---------------------------------------
 -- -- user_hosts table
@@ -36,7 +35,6 @@ ALTER TABLE resource_provider_account_logins OWNER TO tms_portal_user;
 --     UNIQUE (tms_user_id, host, host_account),
 --     FOREIGN KEY(tms_user_id) REFERENCES resource_provider_account_logins(tms_user_id) ON UPDATE CASCADE ON DELETE CASCADE
 -- );
--- ALTER TABLE user_hosts OWNER TO tms_portal_user;
 --
 -- -- ---------------------------------------
 -- -- delegations table
@@ -54,6 +52,5 @@ ALTER TABLE resource_provider_account_logins OWNER TO tms_portal_user;
 --     FOREIGN KEY(client_user_id) REFERENCES resource_provider_account_logins(tms_user_id) ON UPDATE CASCADE ON DELETE CASCADE,
 --     FOREIGN KEY(client_id) REFERENCES clients(id) ON UPDATE CASCADE ON DELETE CASCADE
 -- );
--- ALTER TABLE delegations OWNER TO tms_portal_user;
 --
 -- CREATE UNIQUE INDEX IF NOT EXISTS delg_user_client_idx ON delegations (client_id, client_user_id);

@@ -5,7 +5,7 @@ use crate::models::resource_api::GetResourceProviderResponse;
 use crate::services::login_service::encode_state;
 use crate::services::service_error::ServiceError::{BadRequest, Internal};
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use jsonwebtoken::signature::rand_core::{OsRng, RngCore};
@@ -73,8 +73,10 @@ pub async fn get_authenticate_redirect_info(
     redirect_url: &String,
 ) -> Result<ResourceProviderAuthorizeInfo, AppError> {
     let mut tx = db_pool.begin().await?;
-    let rp = db_get_resource_provider_by_id(&mut tx, provider_id).await?;
-    let _ = db_get_allowed_redirect(&mut tx, &client_id, &redirect_url).await?;
+    let rp = db_get_resource_provider_by_id(&mut tx, provider_id).await
+        .with_context(|| format!("Unable to find requested resource provider {0}", provider_id))?;
+    let _ = db_get_allowed_redirect(&mut tx, &client_id, &redirect_url).await
+        .with_context(||format!("Requested redirect url {1} is not found for this provider id {0}",  provider_id, redirect_url))?;
     tx.commit().await?;
 
     let oauth_state = OAuth2State {
@@ -138,11 +140,6 @@ pub async fn get_resource_provider_token(
         get_token_for_provider(&rp, &http_config.get_resource_provider_callback_url(), code)
             .await?;
 
-//    Start here!!!
-    // TODO:
-    // these should be in a cookie or something
-    // Also look at name of rp state cookie and rp token cookie, etc
-    // also fill in all of the fields for the db_ad_or_update...
     let access_token = reponse.result.access_token;
 
     let decoded_token:Value = JwtDecoderBuilder::builder()
@@ -166,12 +163,12 @@ pub async fn get_resource_provider_token(
 
     let tms_user_id = tms_identity.to_string();
     let resource_provider_account = subject;
-    let resource_provider_id = provider_id.clone();
+    let resource_provider_uuid = rp.uuid;
     let last_login = Utc::now();
     let enabled = false;
 
     db_add_or_update_resource_account_login(&mut tx, tms_user_id, resource_provider_account.to_string(),
-                                            resource_provider_id, last_login, enabled).await?;
+                                            resource_provider_uuid, last_login, enabled).await?;
     tx.commit().await?;
 
     Ok(())

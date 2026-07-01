@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::str::FromStr;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 /*
 Identity providers can be for either resources or for logins.  There's a boolean for
 the support of each - supports_login, supports_resources.  I guess in retrospect it should
@@ -17,6 +18,7 @@ rather if we allow it.
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct IdentityProvider {
+    pub uuid: Option<Uuid>,
     pub id: String,
     pub name: String,
     pub client_id: String,
@@ -39,6 +41,7 @@ impl TryFrom<&PgRow> for IdentityProvider {
     fn try_from(row: &PgRow) -> anyhow::Result<Self, Self::Error> {
         let provider: &str = row.get("provider_type");
         Ok(IdentityProvider {
+            uuid: Some(row.get("uuid")),
             id: row.get("id"),
             name: row.get("name"),
             client_id: row.get("client_id"),
@@ -91,7 +94,7 @@ pub async fn db_get_login_providers<'a>(
     tx: &mut PgTransaction<'a>,
 ) -> Result<HashSet<IdentityProvider>> {
     let idp_query_result = query(
-        "select id, name, client_id, client_secret, identity_redirect_url,
+        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
                      oauth2_public_key, scope, provider_type,
                      supports_login, supports_resources, created, updated
@@ -115,7 +118,7 @@ pub async fn db_get_login_provider_by_id<'a>(
     id: &String,
 ) -> Result<IdentityProvider> {
     let row = query(
-        "select id, name, client_id, client_secret, identity_redirect_url,
+        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
                      oauth2_public_key, scope, provider_type,
                      supports_login, supports_resources, created, updated
@@ -138,7 +141,7 @@ pub async fn db_get_resource_providers<'a>(
     tx: &mut PgTransaction<'a>,
 ) -> Result<HashSet<IdentityProvider>> {
     let rp_query_result = query(
-        "select id, name, client_id, client_secret, identity_redirect_url,
+        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
                      oauth2_public_key, scope, provider_type,
                      supports_login, supports_resources, created, updated from identity_providers
@@ -161,7 +164,7 @@ pub async fn db_get_resource_provider_by_id<'a>(
     provider_id: &String,
 ) -> Result<IdentityProvider> {
     let rp_query_result = query(
-        "select id, name, client_id, client_secret, identity_redirect_url,
+        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
                      oauth2_public_key, scope, provider_type,
                      supports_login, supports_resources, created, updated from identity_providers
