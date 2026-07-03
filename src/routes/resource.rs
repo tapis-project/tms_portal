@@ -9,7 +9,7 @@ use crate::services::resource_service::{
 use crate::services::service_error::AppError;
 use crate::services::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, CLIENT_ID_TMS};
-use crate::AppState;
+use crate::{utils, AppState};
 use anyhow::Result;
 use axum::extract::{Path, Query, State};
 use axum::http::header::LOCATION;
@@ -23,7 +23,7 @@ use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
-use crate::utils::jwt_utils::JwtValidator;
+use tms_portal::require_token;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";
 const RP_COOKIE_PATH:&str = "/resources/providers";
@@ -39,12 +39,12 @@ pub async fn router() -> Router<AppState> {
         )
 }
 
+#[require_token(security_context)]
 #[debug_handler]
 pub async fn authorize_handler(
     State(app_state): State<AppState>,
     jar: CookieJar,
-    query_params: Query<ResourceProviderAuthorizeRequest>,
-    JwtValidator(security_context): JwtValidator
+    query_params: Query<ResourceProviderAuthorizeRequest>
 ) -> Result<(CookieJar, TmsResponse<()>), AppError> {
     // resource provider login will always be TMS client id
     let client_id = String::from(CLIENT_ID_TMS);
@@ -91,21 +91,20 @@ fn get_rp_state_cookie_name(rp_name:&String) -> String {
     format!("{RP_STATE_PREFIX}{rp_name}")
 }
 
+#[require_token(security_context)]
 #[debug_handler]
 pub async fn list_resource_provider_handler(
     State(app_state): State<AppState>,
     query_params: Query<ListResourceProviderRequestParams>,
-    JwtValidator(security_context): JwtValidator
 ) -> Result<TmsResponse<GetResourceProviderResponse>, AppError> {
     let linked_only = query_params.linked_only.unwrap_or_else(|| false);
     let result = get_resource_providers(&security_context, &app_state.db_pool, &linked_only).await?;
     Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
 }
+#[require_token(security_context)]
 #[debug_handler]
 pub async fn get_resource_handler(
     State(_app_state): State<AppState>,
-    // JwtExtractor validates the token token
-    JwtValidator(_tms_identity): JwtValidator,
     Path((provider_id, provider_account_id)): Path<(String, String)>,
 ) -> Result<TmsResponse<GetResourceResponse>, AppError> {
     // Check that token is valid by getting claims

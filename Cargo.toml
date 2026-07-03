@@ -3,6 +3,9 @@ name = "tms_portal"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+proc-macro = true
+
 [dependencies]
 axum = { version = "0.8.9", features = ["macros"] }
 axum-extra = { version = "0.12.5", features = ["cookie", "cookie-private", "typed-header"] }
@@ -28,6 +31,8 @@ base64 = "0.22.1"
 jwtk = { version = "0.5.0", features = ["openssl"] }
 http = "1.4.2"
 chrono = "0.4.45"
+quote = "1.0.45"
+syn = "2.0.117"
 
 # had to run this command to get the build to work.  I guess there are issues with 0.3.48 with cookies library.
 # this will fix it.
