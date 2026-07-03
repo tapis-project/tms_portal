@@ -23,7 +23,7 @@ use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
-use tms_portal::require_token;
+use tms_proc_macros::require_token;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";
 const RP_COOKIE_PATH:&str = "/resources/providers";

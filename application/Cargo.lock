@@ -2885,26 +2885,19 @@ dependencies = [
  "http",
  "jsonwebtoken",
  "jwtk",
+ "quote",
  "reqwest",
  "serde",
  "serde_json",
  "sqlx",
+ "syn",
  "thiserror",
- "tms_proc_macros",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
  "url",
  "uuid",
-]
-
-[[package]]
-name = "tms_proc_macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
 ]
 
 [[package]]
