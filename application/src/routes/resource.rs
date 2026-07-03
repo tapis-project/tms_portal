@@ -1,4 +1,4 @@
-use crate::models::general_api::TmsResponse;
+use tms_lib::utils::tms_response::TmsResponse;
 use crate::models::resource_api::{
     GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest,
 };
@@ -6,8 +6,7 @@ use crate::services::login_service::decode_state;
 use crate::services::resource_service::{
     get_authenticate_redirect_info, get_resource_provider_token, get_resource_providers,
 };
-use crate::services::service_error::AppError;
-use crate::services::service_error::ServiceError::Unauthorized;
+use tms_lib::utils::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, CLIENT_ID_TMS};
 use crate::{utils, AppState};
 use anyhow::Result;
@@ -23,6 +22,7 @@ use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
+use tms_lib::utils::app_error::AppError;
 use tms_proc_macros::require_token;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";

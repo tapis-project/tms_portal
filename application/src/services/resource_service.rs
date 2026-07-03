@@ -3,7 +3,7 @@ use crate::db::config_dao::db_get_http_config;
 use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_providers};
 use crate::models::resource_api::GetResourceProviderResponse;
 use crate::services::login_service::encode_state;
-use crate::services::service_error::ServiceError::{BadRequest, Internal};
+use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal};
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::{Context, Result};
 use base64::prelude::BASE64_STANDARD;
@@ -15,9 +15,10 @@ use std::time::SystemTime;
 use chrono::{Utc};
 use serde_json::Value;
 use url::Url;
+use tms_lib::utils::app_error::AppError;
+use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login};
-use crate::services::service_error::AppError;
-use crate::utils::jwt_utils::{JwtDecoderBuilder, SecurityContext};
+use crate::utils::jwt_utils::{SecurityContext};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessToken {

@@ -1,4 +1,4 @@
-use crate::services::service_error::ServiceError::BadRequest;
+use tms_lib::utils::service_error::ServiceError::BadRequest;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgRow;

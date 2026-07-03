@@ -1,4 +1,6 @@
 [workspace]
 members = [
-    "application"
-, "libraries/tms_proc_macros"]
+    "application",
+    "libraries/tms_lib",
+    "libraries/tms_proc_macros"
+]

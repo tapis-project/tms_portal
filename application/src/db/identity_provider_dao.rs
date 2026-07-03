@@ -1,5 +1,4 @@
-use crate::services::service_error::ServiceError;
-use crate::services::service_error::ServiceError::NotFound;
+use tms_lib::utils::service_error::{ ServiceError, ServiceError::NotFound };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;

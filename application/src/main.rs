@@ -10,8 +10,7 @@ mod utils;
 use crate::config::init_db;
 use crate::routes::{login, resource, well_known};
 //use axum_extra::extract::cookie::Key;
-use crate::services::service_error::AppError;
-use crate::services::service_error::ServiceError::{MethodNotAllowed, NotFound};
+use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
 use axum::handler::HandlerWithoutStateExt;
 use axum::response::IntoResponse;
 use axum::Router;
@@ -20,6 +19,7 @@ use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
 use url::Url;
+use tms_lib::utils::app_error::AppError;
 
 #[derive(Debug, Clone)]
 struct AppState {

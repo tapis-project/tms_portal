@@ -7,10 +7,8 @@ use crate::db::identity_provider_dao::{
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::models::login_api::{GetIdentityProviderResponse, WhoAmIResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
-use crate::services::service_error::ServiceError::{BadRequest, Unauthorized};
-use crate::services::service_error::{AppError, ServiceError};
+use tms_lib::utils::service_error::{ ServiceError, ServiceError::{BadRequest, Unauthorized}};
 use crate::services::token_provider::TokenProvider;
-use crate::utils::jwt_utils::{JwtDecoderBuilder, JwtEncoderBuilder};
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
@@ -20,6 +18,9 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+use tms_lib::utils::app_error::AppError;
+use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
+use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 
 const DEFAULT_ALGORITHM: &str = "RS256";
 

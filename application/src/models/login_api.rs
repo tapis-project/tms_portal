@@ -11,19 +11,6 @@ pub struct AuthorizeByIdpRequest {
     pub redirect_uri: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ApiResponseBody<T>
-where
-    T: Serialize,
-{
-    pub status: String,
-    pub result: Option<T>,
-}
-
-pub fn internal_error_response(msg: &str) -> Response {
-    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WhoAmIResponse {
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use crate::services::service_error::ServiceError::NotFound;
+use tms_lib::utils::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
 

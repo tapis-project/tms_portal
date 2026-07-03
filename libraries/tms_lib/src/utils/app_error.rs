@@ -1,7 +1,7 @@
-use crate::models::general_api::TmsResponse;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use thiserror::Error;
+use crate::utils::service_error::ServiceError;
+use crate::utils::tms_response::TmsResponse;
 
 pub struct AppError(anyhow::Error);
 impl<E> From<E> for AppError
@@ -11,24 +11,6 @@ where
     fn from(err: E) -> Self {
         Self(err.into())
     }
-}
-
-#[derive(Debug, Error)]
-pub enum ServiceError {
-    #[error("Internal Server Error: {0}")]
-    Internal(String),
-
-    #[error("Not Found: {0}")]
-    NotFound(String),
-
-    #[error("Bad Request: {0}")]
-    BadRequest(String),
-
-    #[error("Unauthorized: {0}")]
-    Unauthorized(String),
-
-    #[error("Method Not allowed: {0}")]
-    MethodNotAllowed(String),
 }
 
 impl IntoResponse for AppError {

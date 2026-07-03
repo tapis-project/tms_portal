@@ -1,10 +1,10 @@
-use crate::models::login_api::{internal_error_response, ApiResponseBody};
 use axum::body::Body;
 use axum::http;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use std::collections::HashMap;
+use crate::utils::api_response_body::ApiResponseBody;
 
 pub struct TmsResponseBuilder<T>
 where
@@ -95,3 +95,7 @@ where
         internal_error_response("Unable to build response")
     }
 }
+fn internal_error_response(msg: &str) -> Response {
+    (StatusCode::INTERNAL_SERVER_ERROR, msg.to_string()).into_response()
+}
+
