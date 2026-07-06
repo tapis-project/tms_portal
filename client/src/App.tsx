@@ -10,11 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-import {
-  useListProviderLinks,
-  useListProviders,
-  useListResources,
-} from "./tms-hooks"
+import { useListProviders, useListResources } from "./tms-hooks"
 import { ResourceCard } from "./components/tms-ui/ResourceCard"
 import { ProviderCard } from "./components/tms-ui/ProviderCard"
 import { UserMenu } from "./components/tms-ui/UserMenu"
@@ -87,34 +83,19 @@ function LinkIdentityModal() {
 }
 
 function ProviderCardList() {
-  const { data: providerList } = useListProviders()
-  const { data: providerLinks } = useListProviderLinks()
+  const { data: providerList } = useListProviders({ linkedOnly: true })
 
-  if (!providerList || !providerLinks) return null
-  const providersWithIdentities = providerList.map((p) => ({
-    ...p,
-    linkedIdentities: providerLinks
-      .filter((link) => link.providerId === p.id)
-      .map((link) => link.providerIdentity),
-  }))
-  return providersWithIdentities
-    .filter((p) => p.linkedIdentities.length > 0)
-    .map((provider) =>
-      provider.linkedIdentities.map((identity) => (
-        <ProviderCard
-          key={`${provider.id}_${identity}`}
-          provider={provider}
-          identity={identity}
-        >
-          <ResourceCardGrid userId={identity} providerId={provider.id} />
-        </ProviderCard>
-      ))
-    )
+  if (!providerList) return null
+
+  return providerList.map((provider) => (
+    <ProviderCard key={`${provider.id}`} provider={provider}>
+      <ResourceCardGrid userId={"ok"} providerId={provider.id} />
+    </ProviderCard>
+  ))
 }
 
 function App() {
   const { data: isAuthenticated } = useAuth()
-  console.log(isAuthenticated)
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">

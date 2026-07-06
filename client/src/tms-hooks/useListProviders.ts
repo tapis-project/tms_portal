@@ -13,16 +13,21 @@ export type Provider = {
   description?: string
 }
 
-const fetchProviders = async () => {
+const fetchProviders = async ({
+  linkedOnly,
+}: { linkedOnly?: boolean } = {}) => {
   const { data } = await httpClient.get<{ result: Provider[] }>(
-    "/resources/providers"
+    "/resources/providers",
+    { params: { linked_only: linkedOnly } }
   )
   return data?.result
 }
 
-export const useListProviders = () => {
+export const useListProviders = ({
+  linkedOnly,
+}: { linkedOnly?: boolean } = {}) => {
   return useQuery({
     queryKey: ["providers"],
-    queryFn: () => fetchProviders(),
+    queryFn: () => fetchProviders({ linkedOnly }),
   })
 }

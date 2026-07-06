@@ -2,36 +2,38 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
+  //CardDescription,
   CardContent,
   CardAction,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
-import { Building2, Unplug, UserRound } from "lucide-react"
+import { Building2, Unplug } from "lucide-react"
 import type { Provider } from "@/tms-hooks"
 
 export function ProviderCard({
   provider,
-  identity,
   children,
-}: React.PropsWithChildren<{ provider: Provider; identity: string }>) {
+}: React.PropsWithChildren<{ provider: Provider; identity?: string }>) {
   return (
     <Card className="border-border/60 shadow-sm">
       <CardHeader>
-        <CardTitle className="flex gap-2 min-w-0">
-          <UserRound />
-          <span className="break-all">{identity}</span>
-        </CardTitle>
-        <CardDescription className="col-span-2 col-start-1 space-y-1">
-          <p>
-            <Building2 className="mr-1 inline align-bottom" />
+        {/* {identity && (
+          <CardTitle className="flex min-w-0 gap-2">
+            <UserRound />
+            <span className="break-all">{identity}</span>
+          </CardTitle>
+        )}
+          */}
+        <CardTitle className="min-w-0 gap-2">
+          <p className="flex items-center gap-1">
+            <Building2 className="mr-1 inline" />
             <span>{provider.name}</span>
           </p>
           <p>{provider.description}</p>
-        </CardDescription>
+        </CardTitle>
 
-        <CardAction className="col-span-2 col-start-1 sm:col-span-1 sm:col-start-2">
+        <CardAction>
           <Button variant="destructive">
             <Unplug className="mr-2 size-4" />
             Disconnect

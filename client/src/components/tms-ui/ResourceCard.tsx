@@ -22,6 +22,7 @@ export function ResourceCard({ resource }: { resource: Resource }) {
     >
       <CardHeader>
         <CardTitle className="text-xl">
+          <Server className="mr-1 inline size-5" />
           <span className="inline-block align-middle break-all">
             {resource.name}
           </span>{" "}
@@ -41,12 +42,13 @@ export function ResourceCard({ resource }: { resource: Resource }) {
           )}
                  */}
         </CardTitle>
+        {/* 
         <CardDescription className="col-span-2 space-y-2">
           <p>
             <Server className="inline size-5" />
           </p>
         </CardDescription>
-        {/* 
+
         <CardAction className="col-span-2 col-start-1 sm:col-span-1 sm:col-start-2">
           {resource.linked ? (
             <Button variant="destructive">
