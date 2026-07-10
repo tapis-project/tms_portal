@@ -45,7 +45,7 @@ index dad72b7..2278063 100644
        </Button>
 ```
 
-`./setupClient`
+`./setupClient` 
 
 Depending on the current working directory, you'll need to make sure the portal can see the ui code.
 If you're running from the top level of the git repo, you can just create a symlink:
@@ -65,3 +65,7 @@ If you changed the default port for postgres:
 Point the browser at http://localhost:8080/
 
 ## If desired, populate db with sample data
+At this point everything is started up, but you'll need add identity providers, etc to make it work.  
+This is all done in the db.
+cat ~/tms_portal_dev_config.sql | docker exec tms_portal_postgres psql -U tms_portal_user tms_portal_db
+
