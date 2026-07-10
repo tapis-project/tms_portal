@@ -67,5 +67,5 @@ Point the browser at http://localhost:8080/
 ## If desired, populate db with sample data
 At this point everything is started up, but you'll need add identity providers, etc to make it work.  
 This is all done in the db.
-cat tms_portal_dev_config.sql | docker exec -i tms_portal_postgres psql -U tms_portal_user tms_portal_db
+`cat tms_portal_dev_config.sql | docker exec -i tms_portal_postgres psql -U tms_portal_user tms_portal_db`
 
