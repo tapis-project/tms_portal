@@ -1,13 +1,6 @@
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
 use anyhow::{Context, Result};
-use jsonwebtoken::jwk::JwkSet;
-use jsonwebtoken::{
-    decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData,
-    Validation,
-};
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::str::FromStr;
+use jsonwebtoken::decode_header;
 use axum::extract::{FromRequestParts, State};
 use axum_extra::extract::CookieJar;
 use axum_extra::headers::Authorization;
