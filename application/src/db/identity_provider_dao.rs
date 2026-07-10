@@ -147,8 +147,10 @@ pub async fn db_get_resource_providers<'a>(
                      ip.oidc_user_info_url, ip.oauth2_public_key, ip.scope, ip.provider_type,
                      ip.supports_login, ip.supports_resources, ip.created, ip.updated
                      from identity_providers as ip INNER JOIN resource_provider_account_logins
-                     AS rpal ON ip.uuid = rpal.resource_provider_uuid where supports_resources = true",
-            ).fetch_all(&mut **tx)
+                     AS rpal ON ip.uuid = rpal.resource_provider_uuid where supports_resources = true
+                     and tms_identity = $1",
+            ).bind(tms_identity)
+                .fetch_all(&mut **tx)
                 .await?
         }
         false => {
