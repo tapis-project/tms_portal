@@ -17,13 +17,6 @@ const whoamiStub = {
   idpDisplayName: "University of Texas at Austin",
   organization: "University of Texas at Austin",
 }
-const providerLinkageStubs = [
-  {
-    providerId: "tacc",
-    tmsIdentity: "jarosenb",
-    providerIdentity: "jarosenb",
-  },
-]
 
 const resourceStubs: Record<string, string>[] = [
   {
@@ -58,13 +51,12 @@ export const handlers = [
     return HttpResponse.json({ result: providerStubs })
   }),
 
-  http.get("/resource/provider-links", () => {
-    return HttpResponse.json({ result: providerLinkageStubs })
-  }),
-
-  http.get<{ provider: string; userId: string }>("/resources", () => {
-    return HttpResponse.json({
-      result: resourceStubs,
-    })
-  }),
+  http.get<{ provider: string; userId: string }>(
+    "/resources/:provider_id/:provider_account_id",
+    () => {
+      return HttpResponse.json({
+        result: resourceStubs,
+      })
+    }
+  ),
 ]

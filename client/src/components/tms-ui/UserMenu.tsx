@@ -13,7 +13,7 @@ import { useWhoami } from "@/tms-hooks"
 
 export function UserMenu() {
   const { data: isAuthenticated } = useAuth()
-  const { data: whoami } = useWhoami({enabled: !!isAuthenticated});
+  const { data: whoami } = useWhoami({ enabled: !!isAuthenticated })
   if (!isAuthenticated || !whoami)
     return (
       <Button variant="outline" role="link" asChild>
