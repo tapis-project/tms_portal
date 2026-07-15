@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use crate::utils::service_error::ServiceError;
-use crate::utils::tms_response::TmsResponse;
+use tms_lib::utils::service_error::ServiceError;
+use crate::models::tms_response::TmsResponse;
 
 pub struct AppError(anyhow::Error);
 impl<E> From<E> for AppError

@@ -15,7 +15,7 @@ use std::time::SystemTime;
 use chrono::{Utc};
 use serde_json::Value;
 use url::Url;
-use tms_lib::utils::app_error::AppError;
+use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login};
 use crate::utils::jwt_utils::{SecurityContext};

@@ -8,7 +8,7 @@ use axum_extra::headers::authorization::Bearer;
 use axum_extra::TypedHeader;
 use http::request::Parts;
 use sqlx::PgPool;
-use tms_lib::utils::app_error::AppError;
+use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use crate::AppState;
 use crate::db::keys_dao::db_get_key_by_id;

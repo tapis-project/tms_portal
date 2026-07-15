@@ -19,7 +19,7 @@ use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
 use url::Url;
-use tms_lib::utils::app_error::AppError;
+use models::app_error::AppError;
 
 #[derive(Debug, Clone)]
 struct AppState {

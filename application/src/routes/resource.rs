@@ -1,4 +1,4 @@
-use tms_lib::utils::tms_response::TmsResponse;
+use crate::models::tms_response::TmsResponse;
 use crate::models::resource_api::{
     GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest,
 };
@@ -22,7 +22,7 @@ use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
-use tms_lib::utils::app_error::AppError;
+use crate::models::app_error::AppError;
 use crate::utils::jwt_utils::JwtValidator;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";

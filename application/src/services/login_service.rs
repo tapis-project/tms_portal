@@ -18,7 +18,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
-use tms_lib::utils::app_error::AppError;
+use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 
