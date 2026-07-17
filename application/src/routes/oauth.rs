@@ -3,23 +3,33 @@
  */
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use anyhow::Context;
 use axum::{debug_handler, Router};
 use axum::extract::{State, Query};
 use axum::routing::{get};
+use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
-use http::header::LOCATION;
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use http::StatusCode;
 use serde::Deserialize;
+use serde_json::Value;
+use sqlx::PgPool;
 use tms_lib::utils::service_error::ServiceError;
-use tms_lib::utils::service_error::ServiceError::BadRequest;
+use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::AppState;
+use crate::db::identity_provider_dao::db_get_login_provider_by_id;
 use crate::models::app_error::AppError;
 use crate::models::tms_response::TmsResponse;
-use crate::services::oauth2_service::handle_authorize_code_response;
+use crate::services::login_service::{decode_access_token, decode_state, get_login_provider_token, make_auth_token};
+use crate::services::oauth2_service::{get_client, get_login_identity_provider, get_login_redirect_location, get_state, token_from_code};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Deserialize)]
 pub enum GrantType {
+    #[serde(rename = "authorization_code")]
     AuthorizationCode,
+    #[serde(rename = "refresh_token")]
     RefreshToken,
 }
 
@@ -73,7 +83,7 @@ struct OAuthAuthorizeRequest {
 struct OAuthTokenRequest {
     pub client_id: String,
     pub client_secret: String,
-    pub grant_type: String,
+    pub grant_type: GrantType,
     pub redirect_uri: String,
     pub code: String,
     pub refresh_token: String,
@@ -83,23 +93,37 @@ pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/oauth2/authorize", get(authorize_handler))
         .route("/oauth2/tokens", get(tokens_handler))
+        .route("/oauth2/callback", get(callback_handler))
 }
 #[debug_handler]
-pub async fn authorize_handler(State(app_state): State<AppState>,
-                            query_params: Query<OAuthAuthorizeRequest>) -> anyhow::Result<TmsResponse<()>, AppError> {
+pub async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
+                            query_params: Query<OAuthAuthorizeRequest>) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
     match query_params.response_type {
         ResponseType::Code => {
-            let redirect_location = handle_authorize_code_response(&app_state.db_pool, &query_params.client_id,
-                                                                   &query_params.redirect_uri, &query_params.state,
-                                                                   &query_params.scope).await?;
+            let idp = get_login_identity_provider(&app_state.db_pool).await?;
+            let client = get_client(&app_state.db_pool, &query_params.client_id).await?;
+            let encoded_state = get_state(&app_state.db_pool, &query_params.client_id,
+                                          &query_params.redirect_uri, idp.id).await?;
+            let location = get_login_redirect_location(&app_state.db_pool, &query_params.client_id,
+                                                       &query_params.redirect_uri, &encoded_state).await?;
+            let updated_jar = jar.add(
+                Cookie::build((STATE_COOKIE_NAME, encoded_state))
+                    .path(ROOT_COOKIE_PATH)
+                    .http_only(true),
+            );
 
-            // redirect browser back to the post-login page (taken from state - validated in login step).
-            let headers: HashMap<String, String> =
-                HashMap::from_iter(vec![(LOCATION.to_string(), String::from(redirect_location))].into_iter());
+            let mut headers = HashMap::new();
+            headers.insert("location".to_string(), location.to_string());
+            let creds = format!("{}:{}", client.id, client.secret);
+            let authorization = format!("Basic {}", BASE64_STANDARD.encode(&creds));
+            headers.insert("Authorization".to_string(), authorization);
 
-            return Ok(TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)
-                .headers(headers)
-                .build());
+            Ok((
+                updated_jar,
+                TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)
+                    .headers(headers)
+                    .build(),
+            ))
         }
     }
 }
@@ -107,8 +131,32 @@ pub async fn authorize_handler(State(app_state): State<AppState>,
 #[debug_handler]
 pub async fn tokens_handler(State(app_state): State<AppState>,
                             query_params: Query<OAuthTokenRequest>) -> anyhow::Result<String, AppError> {
-    Ok(format!("Request: {:?}", query_params))
+    match query_params.grant_type {
+        GrantType::AuthorizationCode => {
+            let value = token_from_code(&app_state.db_pool, &query_params.client_id,
+                                        &query_params.client_secret, &query_params.code,
+                                        &query_params.redirect_uri).await?;
+            Ok(value)
+        },
+
+        _ => {
+            Err(BadRequest("Invalid grant type".to_string()).into())
+        }
+    }
 }
+
+#[debug_handler]
+pub async fn callback_handler(
+    State(app_state): State<AppState>,
+    jar: CookieJar,
+    query_params: Query<AuthCodeQueryParams>,
+) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
+    //
+    // // TODO:
+    // Start here
+    todo!()
+}
+
 
 #[cfg(test)]
 mod tests {

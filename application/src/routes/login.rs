@@ -27,7 +27,12 @@ use base64::Engine;
 use jsonwebtoken::signature::rand_core::{OsRng, RngCore};
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
+use base64::engine::general_purpose;
+use rand::distr::StandardUniform;
+use rand::{CryptoRng, Rng, RngExt};
+use rand::rngs::ThreadRng;
 use url::Url;
+use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::models::app_error::AppError;
 /*
 This file handles the web part of logging into the TMS portal.  This includes tasks such as:
@@ -89,16 +94,13 @@ pub async fn login_handler(
             let http_config = db_get_http_config(&mut tx).await?;
             tx.commit().await?;
             let callback_url = &http_config.get_identity_provider_callback_url();
-            let mut nonce = [0u8; 12];
-            OsRng.fill_bytes(&mut nonce);
-            let nonce_slice = BASE64_STANDARD.encode(nonce);
-            // TODO:  make a real nonce
+            let encoded_nonce = BASE64_STANDARD.encode(generate_nonce().to_ne_bytes());
             let mut query_params = vec![
                 ("response_type", "code"),
                 ("client_id", &idp.client_id),
                 ("redirect_uri", callback_url),
                 ("state", &encoded_state),
-                ("nonce", &nonce_slice),
+                ("nonce", &encoded_nonce),
                 ("access_type", "offline"),
             ];
 
