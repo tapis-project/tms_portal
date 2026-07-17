@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use axum::{debug_handler, Router};
 use axum::extract::{State, Query};
-use axum::routing::{get, post};
+use axum::routing::{get};
 use axum_extra::extract::CookieJar;
 use http::header::LOCATION;
 use http::StatusCode;
@@ -27,7 +27,7 @@ impl TryFrom<&str> for GrantType {
     type Error = ServiceError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match(value) {
+        match value {
             v if v.eq_ignore_ascii_case("authorization_code") => Ok(GrantType::AuthorizationCode),
             v if v.eq_ignore_ascii_case("refresh_token") => Ok(GrantType::RefreshToken),
             _ => Err(BadRequest(format!("Unknown GrantType {}", value))),
@@ -45,7 +45,7 @@ impl TryFrom<&str> for ResponseType {
     type Error = ServiceError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match(value) {
+        match value {
             v if v.eq_ignore_ascii_case("code") => Ok(ResponseType::Code),
             _ => Err(BadRequest(format!("Unknown ResponseType {}", value))),
         }
@@ -86,7 +86,6 @@ pub async fn router() -> Router<AppState> {
 }
 #[debug_handler]
 pub async fn authorize_handler(State(app_state): State<AppState>,
-                            jar: CookieJar,
                             query_params: Query<OAuthAuthorizeRequest>) -> anyhow::Result<TmsResponse<()>, AppError> {
     match query_params.response_type {
         ResponseType::Code => {
@@ -107,7 +106,6 @@ pub async fn authorize_handler(State(app_state): State<AppState>,
 
 #[debug_handler]
 pub async fn tokens_handler(State(app_state): State<AppState>,
-                            jar: CookieJar,
                             query_params: Query<OAuthTokenRequest>) -> anyhow::Result<String, AppError> {
     Ok(format!("Request: {:?}", query_params))
 }

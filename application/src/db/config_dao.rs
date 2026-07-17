@@ -24,6 +24,7 @@ impl TryFrom<&PgRow> for StateKey {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JwtConfig {
     pub default_expiration_minutes: String,
+    pub signing_key_kid: String,
 }
 impl TryFrom<&PgRow> for JwtConfig {
     type Error = Error;

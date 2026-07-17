@@ -8,7 +8,7 @@ use crate::services::resource_service::{
 };
 use tms_lib::utils::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, CLIENT_ID_TMS};
-use crate::{utils, AppState};
+use crate::{AppState};
 use anyhow::Result;
 use axum::extract::{Path, Query, State};
 use axum::http::header::LOCATION;

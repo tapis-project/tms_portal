@@ -7,6 +7,7 @@ use crate::utils::service_error::ServiceError::Internal;
 pub struct JwtDecoderBuilder {
     jwks_url: Option<String>,
     public_key_bytes: Option<Vec<u8>>,
+    validate_aud: bool,
     audience: Option<HashSet<String>>,
 }
 
@@ -16,6 +17,7 @@ impl JwtDecoderBuilder {
             jwks_url: None,
             public_key_bytes: None,
             audience: None,
+            validate_aud: true,
         }
     }
     pub fn jwks_url(mut self, jwks_url: &Option<String>) -> Self {
@@ -27,6 +29,11 @@ impl JwtDecoderBuilder {
 
     pub fn public_key(mut self, key_bytes: &[u8]) -> Self {
         self.public_key_bytes = Some(key_bytes.to_vec());
+        self
+    }
+
+    pub fn validate_aud(mut self, validate_aud:bool) -> Self {
+        self.validate_aud = validate_aud.clone();
         self
     }
 
@@ -71,7 +78,9 @@ impl JwtDecoderBuilder {
         // TODO: remember this trick for generics.  It helps a lot!!
         // println!("Type is: {}", std::any::type_name::<T>());
         let mut validation = Validation::new(algorithm);
-        if let Some(_) = &self.audience {
+        if self.validate_aud {
+            validation.validate_aud = false;
+        } else if let Some(_) = &self.audience {
             validation.aud = self.audience.to_owned();
         }
 

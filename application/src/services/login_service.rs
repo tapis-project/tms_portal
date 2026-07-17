@@ -49,12 +49,11 @@ pub struct TmsTokenClaims {
     pub jti: Value,
     pub iss: Value,
     pub sub: Value,
+    pub aud: Value,
     #[serde(rename = "tms/token_type")]
     pub tms_token_type: Value,
     #[serde(rename = "tms/username")]
     pub tms_username: Value,
-    #[serde(rename = "tms/client_id")]
-    pub tms_client_id: Value,
     #[serde(rename = "tms/grant_type")]
     pub tms_grant_type: Value,
     #[serde(rename = "tms/account_type")]
@@ -121,6 +120,8 @@ pub async fn handle_callback(
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
+
+    let audience = String::from("FIXME!!");
     make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
 }
 
@@ -133,6 +134,7 @@ pub async fn decode_state(pool: &PgPool, state_string: &String) -> Result<OAuth2
 
     JwtDecoderBuilder::builder()
         .public_key(&keys.jwt_public_key.as_bytes())
+        .validate_aud(false)
         .decode::<OAuth2State>(&state_string)
         .await
 }
@@ -199,7 +201,7 @@ pub async fn make_auth_token(
     let http_config = db_get_http_config(&mut tx).await?;
     let jwt_config = db_get_jwt_config(&mut tx).await?;
     let client = db_get_client_by_id(&mut tx, client_id).await?;
-    let kid = &client.kid;
+    let kid = &jwt_config.signing_key_kid;
     let keys = db_get_key_by_id(&mut tx, &kid).await?;
     tx.commit().await?;
 
@@ -217,9 +219,9 @@ pub async fn make_auth_token(
         jti: Value::from(Uuid::new_v4().to_string()),
         iss: Value::from(issuer),
         sub: Value::from(tms_subject),
+        aud: Value::from(client_id.clone()),
         tms_token_type: Value::from("access"),
         tms_username: Value::from(tms_username),
-        tms_client_id: Value::from(client_id.clone()),
         tms_grant_type: Value::from("password"),
         tms_account_type: Value::from("user"),
         tms_name: claims.get(CLAIM_NAME).map(|value| (*value).clone()),
@@ -273,7 +275,7 @@ pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIRe
     let tms_token_claims: TmsTokenClaims = JwtDecoderBuilder::builder()
         .public_key(key.jwt_public_key.as_bytes())
         .decode(token)
-        .await?;
+        .await.context("Error decoding JWT")?;
 
     let idp_provider = &tms_token_claims.tms_idp_provider;
     let token_provider = match idp_provider {

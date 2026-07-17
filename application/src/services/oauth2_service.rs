@@ -5,7 +5,7 @@ use rand::RngExt;
 use rand::rngs::ThreadRng;
 use sqlx::PgPool;
 use url::Url;
-use tms_lib::utils::service_error::{ServiceError::BadRequest, ServiceError::Internal};
+use tms_lib::utils::service_error::{ServiceError::BadRequest};
 use crate::db::allowed_redirects_dao::{db_get_allowed_redirect};
 use crate::db::auth_code_data::db_insert_auth_code_data;
 use crate::db::client_dao::db_get_client_by_id;

@@ -1,5 +1,5 @@
-use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use anyhow::{Context, Result};
+use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
+use anyhow::{Result};
 use jsonwebtoken::decode_header;
 use axum::extract::{FromRequestParts, State};
 use axum_extra::extract::CookieJar;
@@ -56,14 +56,11 @@ where {
             Ok(bearer) => bearer.token().to_string(),
             Err(_) => {
                 let mut result:String = String::default();
-                if let Ok(app_state) = State::<AppState>::from_request_parts(req_parts, app_state).await {
-                    if let Ok(jar) = CookieJar::from_request_parts(req_parts, &app_state).await {
-                        if let Some(token) = jar.get(TMS_TOKEN_COOKIE_NAME) {
-                            result = token.value().to_string();
-                        };
-                    };
+                let Ok(app_state) = State::<AppState>::from_request_parts(req_parts, app_state).await;
+                let Ok(jar) = CookieJar::from_request_parts(req_parts, &app_state).await;
+                if let Some(token) = jar.get(TMS_TOKEN_COOKIE_NAME) {
+                    result = token.value().to_string();
                 };
-
                 result
             },
         };

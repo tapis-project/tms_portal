@@ -10,7 +10,6 @@ pub struct Client {
     pub name: String,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
-    pub kid: String,
 }
 
 impl From<&PgRow> for Client {
@@ -21,7 +20,6 @@ impl From<&PgRow> for Client {
             name: row.get("name"),
             created: row.get("created"),
             updated: row.get("updated"),
-            kid: row.get("kid"),
         }
     }
 }
@@ -29,7 +27,7 @@ pub async fn db_get_client_by_id<'a>(
     tx: &mut PgTransaction<'a>,
     id: &String,
 ) -> anyhow::Result<Client> {
-    let row = query("select id, name, secret, kid, created, updated from clients where id = $1")
+    let row = query("select * from clients where id = $1")
         .bind(id)
         .fetch_one(&mut **tx)
         .await
@@ -47,7 +45,7 @@ pub async fn db_get_client_by_credentials<'a>(
     secret: &String,
 ) -> anyhow::Result<Client> {
     let row = query(
-        "select id, name, secret, kid, created, updated from clients where id = $1 and secret = $2",
+        "select * from clients where id = $1 and secret = $2",
     )
     .bind(id)
     .bind(secret)
