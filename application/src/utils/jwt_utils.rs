@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
-use anyhow::{Result};
+use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use axum::extract::{FromRequestParts, State};
 use axum_extra::extract::CookieJar;
@@ -7,19 +9,72 @@ use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Bearer;
 use axum_extra::TypedHeader;
 use http::request::Parts;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sqlx::PgPool;
+use uuid::Uuid;
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
+use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::AppState;
+use crate::db::client_dao::db_get_client_by_id;
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config};
+use crate::db::identity_provider_dao;
+use crate::db::identity_provider_dao::IdentityProviderType;
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::services::login_service::TmsTokenClaims;
+const DEFAULT_ALGORITHM: &str = "RS256";
 
+const CLAIM_SUB: &str = "sub";
+const CLAIM_IDP: &str = "identity_provider";
+const CLAIM_NAME: &str = "name";
+const CLAIM_IDP_DISPLAY_NAME: &str = "identity_provider_display_name";
+const CLAIM_ORGANIZATION: &str = "organization";
+const TMS_TOKEN_COOKIE_NAME: &str = "tmstoken";
+pub trait Claims {
+    fn get_string_claim(&self, name: &str) -> Result<String>;
+}
+pub type JwtClaims = HashMap<String, Value>;
 pub struct SecurityContext {
     pub tms_identity: String,
 //    pub tms_token_claims: TmsTokenClaims,
 }
 pub struct JwtValidator(pub SecurityContext);
-const TMS_TOKEN_COOKIE_NAME: &str = "tmstoken";
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TmsTokenClaims {
+    pub jti: Value,
+    pub iss: Value,
+    pub sub: Value,
+    pub aud: Value,
+    #[serde(rename = "tms/token_type")]
+    pub tms_token_type: Value,
+    #[serde(rename = "tms/username")]
+    pub tms_username: Value,
+    #[serde(rename = "tms/grant_type")]
+    pub tms_grant_type: Value,
+    #[serde(rename = "tms/account_type")]
+    pub tms_account_type: Value,
+    #[serde(rename = "tms/name", skip_serializing_if = "Option::is_none")]
+    pub tms_name: Option<Value>,
+    #[serde(
+        rename = "tms/identity_provider_display_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tms_idp_display_name: Option<Value>,
+    #[serde(rename = "identity_provider_type")]
+    pub tms_idp_provider: IdentityProviderType,
+    #[serde(rename = "tms/organization", skip_serializing_if = "Option::is_none")]
+    pub tms_organization: Option<Value>,
+    pub exp: Value,
+}
+
+impl TmsTokenClaims {
+    pub fn get_jti(&self) -> Result<String> {
+        get_string_from_value(&self.jti)
+    }
+    pub fn get_sub(&self) -> Result<String> {
+        get_string_from_value(&self.sub)
+    }
+}
 
 async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenClaims> {
     let token_header = match decode_header(token) {
@@ -79,3 +134,79 @@ where {
         }
     }
 }
+
+pub async fn make_auth_token(
+    db_pool: &PgPool,
+    client_id: &String,
+    idp: &identity_provider_dao::IdentityProvider,
+    claims: JwtClaims,
+) -> Result<String> {
+    let mut tx = db_pool.begin().await?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    let jwt_config = db_get_jwt_config(&mut tx).await?;
+    // look up client to make sure it's a real client
+    let _client = db_get_client_by_id(&mut tx, client_id).await?;
+    let kid = &jwt_config.signing_key_kid;
+    let keys = db_get_key_by_id(&mut tx, &kid).await?;
+    tx.commit().await?;
+
+    let issuer = http_config.base_url;
+    let subject = claims.get_string_claim(CLAIM_SUB)?;
+    let provider = idp.identity_provider_type.clone();
+    let idp_id = idp.id.clone();
+    let tms_subject = format!("{0}@{1}", &subject, &idp_id);
+    let tms_username = tms_subject.clone();
+
+    let jwt_expiration_minutes = jwt_config.default_expiration_minutes.parse()?;
+    let expiration = SystemTime::now() + Duration::from_mins(jwt_expiration_minutes);
+
+    let tms_token_claims = TmsTokenClaims {
+        jti: Value::from(Uuid::new_v4().to_string()),
+        iss: Value::from(issuer),
+        sub: Value::from(tms_subject),
+        aud: Value::from(client_id.clone()),
+        tms_token_type: Value::from("access"),
+        tms_username: Value::from(tms_username),
+        tms_grant_type: Value::from("password"),
+        tms_account_type: Value::from("user"),
+        tms_name: claims.get(CLAIM_NAME).map(|value| (*value).clone()),
+        tms_idp_provider: provider,
+        tms_idp_display_name: claims
+            .get(CLAIM_IDP_DISPLAY_NAME)
+            .map(|value| (*value).clone()),
+        tms_organization: claims.get(CLAIM_ORGANIZATION).map(|value| (*value).clone()),
+        exp: Value::from(expiration.duration_since(UNIX_EPOCH)?.as_secs()),
+    };
+
+    // TODO: add kid, alg, and jti in header ... maybe other stuff?
+    JwtEncoderBuilder::builder(
+        tms_token_claims,
+        keys.jwt_private_key.as_bytes(),
+        DEFAULT_ALGORITHM,
+        kid,
+    )
+        .encode()
+        .await
+}
+
+impl Claims for JwtClaims {
+    fn get_string_claim(&self, name: &str) -> Result<String> {
+        get_string_claim(self, name)
+    }
+}
+fn get_string_claim(claims:&JwtClaims, name: &str) -> Result<String> {
+    let value = claims.get(name).ok_or(Unauthorized(format!(
+        "Unable to find '{0}' claim in identity token",
+        name
+    ))).context(format!("Claim name: {0}", name))?;
+    get_string_from_value(value)
+}
+fn get_string_from_value(value:&Value) -> Result<String> {
+    let string_slice_value = value
+        .as_str()
+        .ok_or(Unauthorized(format!("Value '{0}' is not a string", value)))?;
+    Ok(String::from(string_slice_value))
+}
+
+
+

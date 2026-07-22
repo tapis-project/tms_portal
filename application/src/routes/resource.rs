@@ -2,7 +2,6 @@ use crate::models::tms_response::TmsResponse;
 use crate::models::resource_api::{
     GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest,
 };
-use crate::services::login_service::decode_state;
 use crate::services::resource_service::{
     get_authenticate_redirect_info, get_resource_provider_token, get_resource_providers,
 };
@@ -24,6 +23,7 @@ use std::string::ToString;
 use uuid::Uuid;
 use crate::models::app_error::AppError;
 use crate::utils::jwt_utils::JwtValidator;
+use crate::utils::state_utils::decode_state;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";
 const RP_COOKIE_PATH:&str = "/resources/providers";
@@ -106,7 +106,7 @@ pub async fn list_resource_provider_handler(
 pub async fn get_resource_handler(
     State(_app_state): State<AppState>,
     Path((provider_id, provider_account_id)): Path<(String, String)>,
-    JwtValidator(security_context): JwtValidator,
+    JwtValidator(_security_context): JwtValidator,
 ) -> Result<TmsResponse<GetResourceResponse>, AppError> {
     // Check that token is valid by getting claims
     let r1 = Resource {

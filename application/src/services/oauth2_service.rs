@@ -1,23 +1,27 @@
+use std::collections::HashMap;
 use std::time::SystemTime;
 use anyhow::Context;
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
+use chrono::{DateTime, TimeDelta, Utc};
 use rand::distr::Alphanumeric;
 use rand::RngExt;
 use rand::rngs::ThreadRng;
+use serde_json::Value;
 use sqlx::PgPool;
 use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use tms_lib::utils::service_error::{ServiceError::BadRequest};
-use tms_lib::utils::service_error::ServiceError::Internal;
+use tms_lib::utils::service_error::ServiceError::{Internal, Unauthorized};
 use crate::db::allowed_redirects_dao::{db_get_allowed_redirect};
-use crate::db::auth_code_data::db_insert_auth_code_data;
-use crate::db::client_dao::{db_get_client_by_id, Client};
+use crate::db::auth_code_data::{db_get_auth_code_data, db_insert_auth_code_data};
+use crate::db::client_dao::{db_get_client_by_credentials, db_get_client_by_id, Client};
 use crate::db::config_dao::{db_get_http_config, db_get_oauth_config};
 use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider};
 use crate::models::app_error::AppError;
-use crate::services::login_service::encode_state;
-use crate::utils::oauth2_authorization_code_utils::{OAuth2State};
+use crate::utils::jwt_utils::make_auth_token;
+use crate::utils::state_utils::{decode_state, encode_state};
+use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_login_provider_token, OAuth2State};
 
 // Temporary internal storage mockup for verification
 struct AuthCodeData {
@@ -33,7 +37,7 @@ pub async fn authorize_code_response(pool:&PgPool, client_id:&String,
     let client = db_get_client_by_id(&mut tx, &client_id).await?;
 
     // validate scope -- must not be present for now
-    if let Some(requested_scope) = scope {
+    if let Some(_requested_scope) = scope {
         return Err(BadRequest(String::from("Scopes are not supported at present, and must not be requested.")).into());
     }
 
@@ -66,6 +70,17 @@ fn generate_code() -> String {
         .take(32)
         .map(char::from)
         .collect()
+}
+pub async fn get_callback_redirect_location(pool:&PgPool, state:&OAuth2State, code:&String) -> anyhow::Result<Url, AppError> {
+    let mut tx = pool.begin().await?;
+    // TODO:  Get the timeDelta from configuration
+    let auth_code_data = db_get_auth_code_data(&mut tx, code, &state.client_id, TimeDelta::seconds(20)).await?;
+    let mut location = Url::parse(&auth_code_data.redirect_uri)?;
+    if let Some(state) = &auth_code_data.state {
+        location.query_pairs_mut().append_pair("state", &state);
+    }
+    location.query_pairs_mut().append_pair("code", &code);
+    Ok(location)
 }
 
 pub async fn get_login_redirect_location(pool:&PgPool, client_id:&String, redirect_uri:&String, encoded_state:&String) -> anyhow::Result<Url, AppError> {
@@ -101,7 +116,7 @@ pub async fn get_login_redirect_location(pool:&PgPool, client_id:&String, redire
     // };
     // tx.commit().await?;
 
-    let callback_url = &http_config.get_identity_provider_callback_url();
+    let callback_url = &http_config.get_oauth_provider_callback_url();
     let encoded_nonce = BASE64_STANDARD.encode(generate_nonce().to_ne_bytes());
     let mut query_params = vec![
         ("response_type", "code"),
@@ -156,8 +171,6 @@ pub async fn get_client(pool:&PgPool, client_id:&String) -> anyhow::Result<Clien
 
 pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, idp_id:String) -> anyhow::Result<String, AppError> {
     let mut tx = pool.begin().await?;
-    let oauth_config = db_get_oauth_config(&mut tx).await?;
-
     // Check redirect uri - this fails if the redirect doesnt exist
     db_get_allowed_redirect(&mut tx, &client_id, &redirect_uri).await?;
 
@@ -173,6 +186,7 @@ pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, id
             .as_secs()
             // TODO:  This should be a config setting
             + 300000,
+        nonce: generate_nonce(),
     };
 
     match encode_state(pool, oauth_state).await.context("Unable to encode state") {
@@ -185,7 +199,7 @@ pub async fn token_from_code(pool:&PgPool, client_id:&String, client_secret:&Str
                              redirect_uri:&String) -> anyhow::Result<String, AppError> {
     // validate client id
     let mut tx = pool.begin().await?;
-    let client = db_get_client_by_id(&mut tx, &client_id).await?;
+    let client = db_get_client_by_credentials(&mut tx, &client_id, client_secret).await?;
 
     // validate redirect uri
     let allowed_redirect =
@@ -194,3 +208,37 @@ pub async fn token_from_code(pool:&PgPool, client_id:&String, client_secret:&Str
     tx.commit().await?;
     Err(Internal(String::from("not implemented yet")).into())
 }
+
+pub async fn do_authorize_callback(
+    pool: &PgPool,
+    state: &String,
+    code: &String,
+    cookie_state: &String,
+) -> anyhow::Result<String> {
+    if !cookie_state.eq(state) {
+        return Err(Unauthorized("State cookies do not match".to_string()).into());
+    }
+
+    let decoded_state = decode_state(pool, state)
+        .await
+        .context("Unable to decode state query param")?;
+    dbg!(&decoded_state);
+
+    let mut tx = pool.begin().await?;
+    let idp = db_get_login_provider_by_id(&mut tx, &decoded_state.idp_id)
+        .await
+        .context("Unable to get idp for database")?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    tx.commit().await?;
+
+    let token = get_login_provider_token(pool, &idp, code, &http_config.get_oauth_provider_callback_url()).await?;
+    dbg!(&token);
+
+    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
+    claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
+    dbg!(&claims);
+
+    let audience = String::from("FIXME!!");
+    make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
+}
+

@@ -89,7 +89,8 @@ pub async fn jwks_json_handler(
     State(app_state): State<AppState>,
 ) -> Result<TmsResponse<JwkSet>, AppError> {
     let mut tx = app_state.db_pool.begin().await?;
-    let client = db_get_client_by_id(&mut tx, &client_id).await?;
+    // lookup client ot make sure it's a real client id
+    let _client = db_get_client_by_id(&mut tx, &client_id).await?;
     let jwt_config = db_get_jwt_config(&mut tx).await?;
     let key = db_get_key_by_id(&mut tx, &jwt_config.signing_key_kid).await?;
     tx.commit().await?;

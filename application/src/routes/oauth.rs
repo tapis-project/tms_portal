@@ -3,7 +3,6 @@
  */
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use anyhow::Context;
 use axum::{debug_handler, Router};
 use axum::extract::{State, Query};
 use axum::routing::{get};
@@ -11,19 +10,18 @@ use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
+use http::header::LOCATION;
 use http::StatusCode;
 use serde::Deserialize;
-use serde_json::Value;
-use sqlx::PgPool;
+use url::Url;
 use tms_lib::utils::service_error::ServiceError;
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::AppState;
-use crate::db::identity_provider_dao::db_get_login_provider_by_id;
 use crate::models::app_error::AppError;
 use crate::models::tms_response::TmsResponse;
-use crate::services::login_service::{decode_access_token, decode_state, get_login_provider_token, make_auth_token};
-use crate::services::oauth2_service::{get_client, get_login_identity_provider, get_login_redirect_location, get_state, token_from_code};
-use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME};
+use crate::services::oauth2_service::{authorize_code_response, do_authorize_callback, get_callback_redirect_location, get_client, get_login_identity_provider, get_login_redirect_location, get_state, token_from_code};
+use crate::utils::state_utils::decode_state;
+use crate::utils::oauth2_authorization_code_utils::{decode_access_token, AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
 
 #[derive(Eq, PartialEq, Debug, Deserialize)]
 pub enum GrantType {
@@ -85,8 +83,8 @@ struct OAuthTokenRequest {
     pub client_secret: String,
     pub grant_type: GrantType,
     pub redirect_uri: String,
-    pub code: String,
-    pub refresh_token: String,
+    pub code: Option<String>,
+    pub refresh_token: Option<String>,
 }
 
 pub async fn router() -> Router<AppState> {
@@ -96,7 +94,7 @@ pub async fn router() -> Router<AppState> {
         .route("/oauth2/callback", get(callback_handler))
 }
 #[debug_handler]
-pub async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
+async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
                             query_params: Query<OAuthAuthorizeRequest>) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
     match query_params.response_type {
         ResponseType::Code => {
@@ -129,14 +127,18 @@ pub async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
 }
 
 #[debug_handler]
-pub async fn tokens_handler(State(app_state): State<AppState>,
+async fn tokens_handler(State(app_state): State<AppState>,
                             query_params: Query<OAuthTokenRequest>) -> anyhow::Result<String, AppError> {
     match query_params.grant_type {
         GrantType::AuthorizationCode => {
-            let value = token_from_code(&app_state.db_pool, &query_params.client_id,
-                                        &query_params.client_secret, &query_params.code,
-                                        &query_params.redirect_uri).await?;
-            Ok(value)
+            if let Some(code) = &query_params.code {
+                let value = token_from_code(&app_state.db_pool, &query_params.client_id,
+                                            &query_params.client_secret, &code,
+                                            &query_params.redirect_uri).await?;
+                Ok(value)
+            } else {
+                Err(BadRequest("Authorization code was not provided".to_string()).into())
+            }
         },
 
         _ => {
@@ -146,15 +148,48 @@ pub async fn tokens_handler(State(app_state): State<AppState>,
 }
 
 #[debug_handler]
-pub async fn callback_handler(
+async fn callback_handler(
     State(app_state): State<AppState>,
     jar: CookieJar,
     query_params: Query<AuthCodeQueryParams>,
 ) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
-    //
-    // // TODO:
-    // Start here
-    todo!()
+    // Get the state cookie set during the login process.
+    let Some(state_cookie) = jar.get(STATE_COOKIE_NAME) else {
+        return Err(Unauthorized("No state cookies were found".to_string()).into());
+    };
+
+    // exchange code for token (state validated in handle_callback)
+    let token = do_authorize_callback(
+        &app_state.db_pool,
+        &query_params.state,
+        &query_params.code,
+        &state_cookie.value().to_owned(),
+    )
+        .await?;
+
+    // Build a new cookie and save it with the TMS token.
+    let c = Cookie::build((TOKEN_COOKIE_NAME, token))
+        .path(ROOT_COOKIE_PATH)
+        .http_only(false)
+        .secure(true)
+        .build();
+    let updated_jar = jar.clone().add(c);
+
+    // redirect browser back to the post-login page (taken from state - validated in login step).
+    let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
+
+    let location = get_callback_redirect_location(&app_state.db_pool, &decoded_state, &query_params.code).await?;
+    let headers: HashMap<String, String> =
+        HashMap::from_iter(vec![(LOCATION.to_string(), String::from(location))].into_iter());
+
+    let updated_jar = updated_jar.remove(Cookie::from(STATE_COOKIE_NAME));
+
+    Ok((
+        updated_jar,
+        TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)
+            .headers(headers)
+            .build(),
+    ))
 }
 
 

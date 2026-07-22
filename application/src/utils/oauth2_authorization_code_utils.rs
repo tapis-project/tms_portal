@@ -1,8 +1,14 @@
+use std::collections::HashSet;
 use crate::db::identity_provider_dao::IdentityProvider;
 use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use tracing::debug;
+use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
+use crate::db::config_dao::db_get_http_config;
+use crate::db::identity_provider_dao;
+use crate::services::login_service::AuthorizationCodeResponse;
 
 pub const ROOT_COOKIE_PATH: &str = "/";
 pub const CLIENT_ID_TMS: &str = "tms";
@@ -22,15 +28,14 @@ pub struct ListResourceProviderRequestParams {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OAuth2State {
-    // TODO: generate crypto random nonce (or something)
     // TODO: can the expiration work better?
     pub tms_identity: String,
     pub idp_id: String,
     pub client_id: String,
     pub exp: u64,
     pub redirect_uri: String,
+    pub nonce: u32,
 }
-
 /*
 Exchanges an auth code for an auth token.  The parameter <R> is the structure
 that it is deserialized into.
@@ -66,4 +71,40 @@ where
         .context("Error getting response body")?;
 
     serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
+}
+pub async fn get_login_provider_token(
+    db_pool: &PgPool,
+    idp: &identity_provider_dao::IdentityProvider,
+    code: &String,
+    redirect_uri: &String,
+) -> Result<AuthorizationCodeResponse> {
+    let mut tx = db_pool.begin().await?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    tx.commit().await?;
+
+    get_token_for_provider(
+        &idp,
+        &redirect_uri,
+        code,
+    )
+        .await
+}
+
+pub async fn decode_access_token<T>(
+    idp: &identity_provider_dao::IdentityProvider,
+    id_token: &String,
+) -> Result<T>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    let audience = HashSet::from([idp.client_id.to_owned()]);
+    let mut builder = JwtDecoderBuilder::builder().jwks_url(&idp.oauth2_jwks_url);
+    if let Some(key) = &idp.oauth2_public_key {
+        builder = builder.public_key(&key.as_bytes());
+    }
+    builder
+        .audience(audience)
+        .decode(id_token)
+        .await
+        .context("Error decoding JWT")
 }

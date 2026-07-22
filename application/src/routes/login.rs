@@ -4,13 +4,10 @@ use crate::db::identity_provider_dao::db_get_login_provider_by_id;
 use crate::models::tms_response::TmsResponse;
 use crate::models::login_api::{AuthorizeByIdpRequest, IdentityProvider, WhoAmIResponse};
 use crate::services::login_service::{
-    decode_state, encode_state, get_identity_providers, handle_callback, whoami,
+    get_identity_providers, handle_callback, whoami,
 };
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use crate::utils::oauth2_authorization_code_utils::{
-    AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME,
-    TOKEN_COOKIE_NAME,
-};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::http::header::LOCATION;
@@ -24,16 +21,13 @@ use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use jsonwebtoken::signature::rand_core::{OsRng, RngCore};
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
-use base64::engine::general_purpose;
-use rand::distr::StandardUniform;
-use rand::{CryptoRng, Rng, RngExt};
-use rand::rngs::ThreadRng;
 use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::models::app_error::AppError;
+use crate::utils::state_utils::{decode_state, encode_state};
+
 /*
 This file handles the web part of logging into the TMS portal.  This includes tasks such as:
 - getting the list of login identity providers
@@ -83,6 +77,7 @@ pub async fn login_handler(
                     .duration_since(SystemTime::UNIX_EPOCH)?
                     .as_secs()
                     + 300000,
+                nonce: generate_nonce()
             };
 
             let encoded_state = match encode_state(&app_state.db_pool, oauth_state).await {

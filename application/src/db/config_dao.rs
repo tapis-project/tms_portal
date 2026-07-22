@@ -50,6 +50,7 @@ pub struct HttpConfig {
     pub base_url: String,
     pub identity_provider_callback_endpoint: String,
     pub resource_provider_callback_endpoint: String,
+    pub oauth_provider_callback_endpoint: String,
     pub token_endpoint: String,
     pub authorization_endpoint: String,
     pub revocation_endpoint: String,
@@ -62,6 +63,9 @@ impl HttpConfig {
     }
     pub fn get_resource_provider_callback_url(&self) -> String {
         self.make_tms_url(&self.base_url, &self.resource_provider_callback_endpoint)
+    }
+    pub fn get_oauth_provider_callback_url(&self) -> String {
+        self.make_tms_url(&self.base_url, &self.oauth_provider_callback_endpoint)
     }
     pub fn get_token_url(&self) -> String {
         self.make_tms_url(&self.base_url, &self.token_endpoint)
