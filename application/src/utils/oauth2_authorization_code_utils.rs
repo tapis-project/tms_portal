@@ -29,12 +29,14 @@ pub struct ListResourceProviderRequestParams {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OAuth2State {
     // TODO: can the expiration work better?
-    pub tms_identity: String,
-    pub idp_id: String,
-    pub client_id: String,
-    pub exp: u64,
-    pub redirect_uri: String,
-    pub nonce: u32,
+    pub tms_identity: String,           // the tms "cloud identity"
+    pub idp_id: String,                 // id of the cloud identity provider a.k.a. login identity provider
+    pub client_id: String,              // client id of the tms client
+    pub exp: u64,                       // TODO: this is supposed to be an expiration for the state, but it should
+                                        // TODO: have a date time or something maybe?  This needs work.
+    pub redirect_uri: String,           // redirect_uri requested by the tms client
+    pub client_state: Option<String>,   // state provided to authorize endpoint by tms client
+    pub nonce: u32,                     // nonce - used to help prevent replay attacks
 }
 /*
 Exchanges an auth code for an auth token.  The parameter <R> is the structure

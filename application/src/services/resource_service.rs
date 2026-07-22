@@ -92,6 +92,7 @@ pub async fn get_authenticate_redirect_info(
             .as_secs()
             + 300000,
         nonce: generate_nonce(),
+        client_state: None,
     };
 
     let encoded_state = match encode_state(&db_pool, oauth_state).await {

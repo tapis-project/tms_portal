@@ -77,7 +77,8 @@ pub async fn login_handler(
                     .duration_since(SystemTime::UNIX_EPOCH)?
                     .as_secs()
                     + 300000,
-                nonce: generate_nonce()
+                nonce: generate_nonce(),
+                client_state: None,
             };
 
             let encoded_state = match encode_state(&app_state.db_pool, oauth_state).await {

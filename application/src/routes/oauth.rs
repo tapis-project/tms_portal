@@ -19,7 +19,9 @@ use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::AppState;
 use crate::models::app_error::AppError;
 use crate::models::tms_response::TmsResponse;
-use crate::services::oauth2_service::{authorize_code_response, do_authorize_callback, get_callback_redirect_location, get_client, get_login_identity_provider, get_login_redirect_location, get_state, token_from_code};
+use crate::services::oauth2_service::{do_authorize_callback, generate_code_and_redirect,
+                                      get_client, get_login_identity_provider,
+                                      get_login_redirect_location, get_state, token_from_code};
 use crate::utils::state_utils::decode_state;
 use crate::utils::oauth2_authorization_code_utils::{decode_access_token, AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
 
@@ -101,7 +103,7 @@ async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
             let idp = get_login_identity_provider(&app_state.db_pool).await?;
             let client = get_client(&app_state.db_pool, &query_params.client_id).await?;
             let encoded_state = get_state(&app_state.db_pool, &query_params.client_id,
-                                          &query_params.redirect_uri, idp.id).await?;
+                                          &query_params.redirect_uri, &idp.id, &query_params.state).await?;
             let location = get_login_redirect_location(&app_state.db_pool, &query_params.client_id,
                                                        &query_params.redirect_uri, &encoded_state).await?;
             let updated_jar = jar.add(
@@ -178,7 +180,7 @@ async fn callback_handler(
     // redirect browser back to the post-login page (taken from state - validated in login step).
     let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
 
-    let location = get_callback_redirect_location(&app_state.db_pool, &decoded_state, &query_params.code).await?;
+    let location = generate_code_and_redirect(&app_state.db_pool, &decoded_state).await?;
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), String::from(location))].into_iter());
 

@@ -71,15 +71,18 @@ fn generate_code() -> String {
         .map(char::from)
         .collect()
 }
-pub async fn get_callback_redirect_location(pool:&PgPool, state:&OAuth2State, code:&String) -> anyhow::Result<Url, AppError> {
+pub async fn generate_code_and_redirect(pool:&PgPool, state:&OAuth2State) -> anyhow::Result<Url, AppError> {
+    let auth_code = generate_code();
     let mut tx = pool.begin().await?;
-    // TODO:  Get the timeDelta from configuration
-    let auth_code_data = db_get_auth_code_data(&mut tx, code, &state.client_id, TimeDelta::seconds(20)).await?;
+    db_insert_auth_code_data(&mut tx, &auth_code, &state.client_id, &state.redirect_uri).await?;
+    let auth_code_data = db_get_auth_code_data(
+        &mut tx, &auth_code, &state.client_id, TimeDelta::seconds(20)).await?;
+    tx.commit().await?;
     let mut location = Url::parse(&auth_code_data.redirect_uri)?;
-    if let Some(state) = &auth_code_data.state {
+    if let Some(state) = &state.client_state {
         location.query_pairs_mut().append_pair("state", &state);
     }
-    location.query_pairs_mut().append_pair("code", &code);
+    location.query_pairs_mut().append_pair("code", &auth_code);
     Ok(location)
 }
 
@@ -169,7 +172,8 @@ pub async fn get_client(pool:&PgPool, client_id:&String) -> anyhow::Result<Clien
     Ok(db_get_client_by_id(&mut tx, client_id).await?)
 }
 
-pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, idp_id:String) -> anyhow::Result<String, AppError> {
+pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, idp_id:&String,
+                       state:&Option<String>) -> anyhow::Result<String, AppError> {
     let mut tx = pool.begin().await?;
     // Check redirect uri - this fails if the redirect doesnt exist
     db_get_allowed_redirect(&mut tx, &client_id, &redirect_uri).await?;
@@ -187,6 +191,7 @@ pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, id
             // TODO:  This should be a config setting
             + 300000,
         nonce: generate_nonce(),
+        client_state: state.clone(),
     };
 
     match encode_state(pool, oauth_state).await.context("Unable to encode state") {

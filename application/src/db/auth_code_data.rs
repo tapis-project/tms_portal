@@ -9,7 +9,6 @@ pub struct AuthCodeData {
     pub auth_code: String,
     pub client_id: String,
     pub redirect_uri: String,
-    pub state: Option<String>,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
 }
@@ -20,7 +19,6 @@ impl From<&PgRow> for AuthCodeData {
             auth_code: row.get("auth_code"),
             client_id: row.get("client_id"),
             redirect_uri: row.get("redirect_uri"),
-            state: row.get("state"),
             created: row.get("created"),
             updated: row.get("updated"),
         }
