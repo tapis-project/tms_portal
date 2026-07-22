@@ -3,12 +3,9 @@ use crate::db::identity_provider_dao::IdentityProvider;
 use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use tracing::debug;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
-use crate::db::config_dao::db_get_http_config;
 use crate::db::identity_provider_dao;
-use crate::services::login_service::AuthorizationCodeResponse;
 
 pub const ROOT_COOKIE_PATH: &str = "/";
 pub const CLIENT_ID_TMS: &str = "tms";
@@ -74,24 +71,6 @@ where
 
     serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
 }
-pub async fn get_login_provider_token(
-    db_pool: &PgPool,
-    idp: &identity_provider_dao::IdentityProvider,
-    code: &String,
-    redirect_uri: &String,
-) -> Result<AuthorizationCodeResponse> {
-    let mut tx = db_pool.begin().await?;
-    let http_config = db_get_http_config(&mut tx).await?;
-    tx.commit().await?;
-
-    get_token_for_provider(
-        &idp,
-        &redirect_uri,
-        code,
-    )
-        .await
-}
-
 pub async fn decode_access_token<T>(
     idp: &identity_provider_dao::IdentityProvider,
     id_token: &String,

@@ -120,7 +120,6 @@ pub async fn get_authenticate_redirect_info(
         query_params.push(("scope", scope.as_str()))
     }
 
-    // TODO:  make a real nonce
     let identity_redirect_url = Url::parse_with_params(&rp.identity_redirect_url, query_params)?;
 
     Ok(ResourceProviderAuthorizeInfo {
@@ -161,7 +160,7 @@ pub async fn get_resource_provider_token(
         _ => return Err(BadRequest("Unable to retreive subject from access token".to_string()).into())
     };
 
-    // I don't think we need this, right?
+    // TODO: I don't think we need this, right?
 //    let refresh_token = reponse.result.refresh_token;
 
     let mut tx = db_pool.begin().await?;

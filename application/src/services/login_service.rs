@@ -6,14 +6,13 @@ use crate::models::login_api::{GetIdentityProviderResponse, WhoAmIResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
 use tms_lib::utils::service_error::{ ServiceError, ServiceError::{BadRequest, Unauthorized}};
 use crate::services::token_provider::TokenProvider;
-use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_login_provider_token, get_token_for_provider};
+use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_token_for_provider};
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
-use std::collections::{HashMap, HashSet};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::collections::{HashMap};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use crate::db::config_dao::db_get_http_config;
@@ -66,15 +65,14 @@ pub async fn handle_callback(
     tx.commit().await?;
 
 
-    let token = get_login_provider_token(pool, &idp, code,
-                                         &http_config.get_identity_provider_callback_url()).await?;
+    let token:AuthorizationCodeResponse =
+        get_token_for_provider(&idp, &http_config.get_identity_provider_callback_url(), code).await?;
     dbg!(&token);
 
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
 
-    let audience = String::from("FIXME!!");
     make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
 }
 

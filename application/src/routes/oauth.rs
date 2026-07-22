@@ -13,7 +13,6 @@ use base64::prelude::BASE64_STANDARD;
 use http::header::LOCATION;
 use http::StatusCode;
 use serde::Deserialize;
-use url::Url;
 use tms_lib::utils::service_error::ServiceError;
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::AppState;
@@ -23,7 +22,7 @@ use crate::services::oauth2_service::{do_authorize_callback, generate_code_and_r
                                       get_client, get_login_identity_provider,
                                       get_login_redirect_location, get_state, token_from_code};
 use crate::utils::state_utils::decode_state;
-use crate::utils::oauth2_authorization_code_utils::{decode_access_token, AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
 
 #[derive(Eq, PartialEq, Debug, Deserialize)]
 pub enum GrantType {
@@ -100,6 +99,7 @@ async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
                             query_params: Query<OAuthAuthorizeRequest>) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
     match query_params.response_type {
         ResponseType::Code => {
+            // TODO can some of this be moved to the seervice class?  Probably!!
             let idp = get_login_identity_provider(&app_state.db_pool).await?;
             let client = get_client(&app_state.db_pool, &query_params.client_id).await?;
             let encoded_state = get_state(&app_state.db_pool, &query_params.client_id,
