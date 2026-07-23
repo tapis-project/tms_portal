@@ -13,7 +13,7 @@ use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use tms_lib::utils::service_error::ServiceError::{Internal, Unauthorized};
 use crate::db::allowed_redirects_dao::{db_get_allowed_redirect};
-use crate::db::auth_code_data::{db_get_auth_code_data, db_insert_auth_code_data};
+use crate::db::auth_code_data::{db_delete_auth_code_data, db_get_auth_code_data, db_insert_auth_code_data};
 use crate::db::client_dao::{db_get_client_by_credentials, db_get_client_by_id, Client};
 use crate::db::config_dao::{db_get_http_config, db_get_oauth_config};
 use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider};
@@ -29,14 +29,20 @@ fn generate_code() -> String {
         .map(char::from)
         .collect()
 }
-pub async fn generate_code_and_redirect(pool:&PgPool, state:&OAuth2State) -> anyhow::Result<Url, AppError> {
+pub async fn generate_code_and_redirect(pool:&PgPool, state:&OAuth2State, provider_token:&String) -> anyhow::Result<Url, AppError> {
     let auth_code = generate_code();
     let mut tx = pool.begin().await?;
-    db_insert_auth_code_data(&mut tx, &auth_code, &state.client_id, &state.redirect_uri).await?;
-    let auth_code_data = db_get_auth_code_data(
-        &mut tx, &auth_code, &state.client_id, TimeDelta::seconds(20)).await?;
+    let idp = db_get_login_provider_by_id(&mut tx, &state.idp_id).await?;
     tx.commit().await?;
-    let mut location = Url::parse(&auth_code_data.redirect_uri)?;
+
+    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &provider_token).await?;
+    claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
+    let token = make_auth_token(pool, &state.client_id, &idp, claims.clone()).await?;
+
+    tx = pool.begin().await?;
+    db_insert_auth_code_data(&mut tx, &auth_code, &state.client_id, &state.redirect_uri, &claims).await?;
+    tx.commit().await?;
+    let mut location = Url::parse(&state.redirect_uri)?;
     if let Some(state) = &state.client_state {
         location.query_pairs_mut().append_pair("state", &state);
     }
@@ -114,8 +120,8 @@ pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, id
     }
 }
 
-pub async fn token_from_code(pool:&PgPool, client_id:&String, client_secret:&String, code:&String,
-                             redirect_uri:&String) -> anyhow::Result<String, AppError> {
+pub async fn get_access_token_from_code(pool:&PgPool, client_id:&String, client_secret:&String, code:&String,
+                                        redirect_uri:&String) -> anyhow::Result<String, AppError> {
     // validate client id
     let mut tx = pool.begin().await?;
     let client = db_get_client_by_credentials(&mut tx, &client_id, client_secret).await?;
@@ -123,12 +129,19 @@ pub async fn token_from_code(pool:&PgPool, client_id:&String, client_secret:&Str
     // validate redirect uri
     let _allowed_redirect =
         db_get_allowed_redirect(&mut tx, &client.id, &redirect_uri).await?;
+    // TODO: get time delta fron config (how recently the auth code must have been issued)
+    let time_delta = TimeDelta::seconds(30);
 
+    // this will remove the auth code data, but return it.  It's only valid for a single use, so we
+    // don't want it hanging around.
+    // TODO: we could invalidate the record insted if we think it might help debuging / tracking errors down.  They would still need to be removed at some point, but we could do that once a day or whatever.  I prefer just deleting them I think.
+    let auth_code_data = db_delete_auth_code_data(&mut tx, code, &client_id, &redirect_uri, time_delta).await?;
     tx.commit().await?;
-    Err(Internal(String::from("not implemented yet")).into())
+
+    Err(Internal("not implemented".to_string()).into())
 }
 
-pub async fn do_authorize_callback(
+pub async fn get_provider_token(
     pool: &PgPool,
     state: &String,
     code: &String,
@@ -138,7 +151,7 @@ pub async fn do_authorize_callback(
         return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
 
-    let decoded_state = decode_state(pool, state)
+    let decoded_state:OAuth2State = decode_state(pool, state)
         .await
         .context("Unable to decode state query param")?;
     dbg!(&decoded_state);
@@ -152,11 +165,14 @@ pub async fn do_authorize_callback(
 
     let token:AuthorizationCodeResponse = get_token_for_provider(&idp, &http_config.get_oauth_provider_callback_url(), code).await?;
     dbg!(&token);
-
+    Ok(token.id_token)
+/*
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
 
     make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
+
+ */
 }
 

@@ -6,7 +6,7 @@ use crate::models::login_api::{GetIdentityProviderResponse, WhoAmIResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
 use tms_lib::utils::service_error::{ ServiceError, ServiceError::{BadRequest, Unauthorized}};
 use crate::services::token_provider::TokenProvider;
-use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_token_for_provider};
+use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_token_for_provider, OAuth2State};
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ pub async fn handle_callback(
         return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
 
-    let decoded_state = decode_state(pool, state)
+    let decoded_state:OAuth2State = decode_state(pool, state)
         .await
         .context("Unable to decode state query param")?;
     dbg!(&decoded_state);

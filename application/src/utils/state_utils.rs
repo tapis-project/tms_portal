@@ -1,3 +1,5 @@
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use sqlx::PgPool;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
@@ -7,7 +9,8 @@ use crate::utils::oauth2_authorization_code_utils::OAuth2State;
 
 const DEFAULT_STATE_ALGORITHM: &str = "RS256";
 
-pub async fn encode_state(pool: &PgPool, oauth_state: OAuth2State) -> anyhow::Result<String> {
+pub async fn encode_state<T>(pool: &PgPool, oauth_state: T) ->
+            anyhow::Result<String> where T:Serialize {
     let mut tx = pool.begin().await?;
     let state_key = db_get_state_key_id(&mut tx).await?;
     let keys = db_get_key_by_id(&mut tx, &state_key.kid).await?;
@@ -23,7 +26,8 @@ pub async fn encode_state(pool: &PgPool, oauth_state: OAuth2State) -> anyhow::Re
         .await
 }
 
-pub async fn decode_state(pool: &PgPool, state_string: &String) -> anyhow::Result<OAuth2State> {
+pub async fn decode_state<T>(pool: &PgPool, state_string: &String) ->
+            anyhow::Result<T> where T:DeserializeOwned {
     let mut tx = pool.begin().await?;
     let state_key = db_get_state_key_id(&mut tx).await?;
     let keys = db_get_key_by_id(&mut tx, &state_key.kid).await?;
@@ -33,7 +37,7 @@ pub async fn decode_state(pool: &PgPool, state_string: &String) -> anyhow::Resul
     JwtDecoderBuilder::builder()
         .public_key(&keys.jwt_public_key.as_bytes())
         .validate_aud(false)
-        .decode::<OAuth2State>(&state_string)
+        .decode::<T>(&state_string)
         .await
 }
 

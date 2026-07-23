@@ -179,7 +179,7 @@ pub async fn callback_handler(
     let updated_jar = jar.clone().add(c);
 
     // redirect browser back to the post-login page (taken from state - validated in login step).
-    let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
+    let decoded_state:OAuth2State = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), decoded_state.redirect_uri)].into_iter());
 
