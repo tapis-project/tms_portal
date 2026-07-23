@@ -136,14 +136,15 @@ async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
 
 #[debug_handler]
 async fn tokens_handler(State(app_state): State<AppState>,
-                        Json(oauth_token_request): Json<OAuthTokenRequest>) -> anyhow::Result<String, AppError> {
+                        Json(oauth_token_request): Json<OAuthTokenRequest>) -> anyhow::Result<TmsResponse<AccessToken>, AppError> {
     match oauth_token_request.grant_type {
         GrantType::AuthorizationCode => {
             if let Some(code) = &oauth_token_request.code {
                 let access_token = get_access_token_from_code(&app_state.db_pool, &oauth_token_request.client_id,
                                                        &oauth_token_request.client_secret, &code,
                                                        &oauth_token_request.redirect_uri).await?;
-                Ok(access_token)
+                Ok(TmsResponse::builder(StatusCode::OK)
+                    .entity(access_token).build())
             } else {
                 Err(BadRequest("Authorization code was not provided".to_string()).into())
             }

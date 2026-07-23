@@ -15,8 +15,8 @@ use sqlx::PgPool;
 use std::collections::{HashMap};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
-use crate::db::config_dao::db_get_http_config;
-use crate::utils::jwt_utils::{make_auth_token, TmsTokenClaims};
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config};
+use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, TmsTokenClaims};
 use crate::utils::state_utils::decode_state;
 
 
@@ -62,6 +62,7 @@ pub async fn handle_callback(
         .await
         .context("Unable to get idp for database")?;
     let http_config = db_get_http_config(&mut tx).await?;
+    let jwt_config = db_get_jwt_config(&mut tx).await?;
     tx.commit().await?;
 
 
@@ -73,7 +74,8 @@ pub async fn handle_callback(
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
 
-    make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
+    let tms_token_claims = get_tms_token_claims(&http_config, &jwt_config, &decoded_state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
+    make_auth_token(pool, &tms_token_claims).await
 }
 
 pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIResponse, AppError> {

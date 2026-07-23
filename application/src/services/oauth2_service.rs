@@ -7,7 +7,7 @@ use chrono::{TimeDelta};
 use rand::distr::Alphanumeric;
 use rand::RngExt;
 use rand::rngs::ThreadRng;
-use serde_json::Value;
+use serde_json::{from_value, Value};
 use sqlx::PgPool;
 use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
@@ -15,11 +15,12 @@ use tms_lib::utils::service_error::ServiceError::{Internal, Unauthorized};
 use crate::db::allowed_redirects_dao::{db_get_allowed_redirect};
 use crate::db::auth_code_data::{db_delete_auth_code_data, db_get_auth_code_data, db_insert_auth_code_data};
 use crate::db::client_dao::{db_get_client_by_credentials, db_get_client_by_id, Client};
-use crate::db::config_dao::{db_get_http_config, db_get_oauth_config};
-use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider};
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_oauth_config};
+use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider, IdentityProviderType};
 use crate::models::app_error::AppError;
 use crate::services::login_service::AuthorizationCodeResponse;
-use crate::utils::jwt_utils::make_auth_token;
+use crate::services::resource_service::AccessToken;
+use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, JwtClaims, TmsTokenClaims};
 use crate::utils::state_utils::{decode_state, encode_state};
 use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_token_for_provider, OAuth2State};
 
@@ -32,15 +33,18 @@ fn generate_code() -> String {
 pub async fn generate_code_and_redirect(pool:&PgPool, state:&OAuth2State, provider_token:&String) -> anyhow::Result<Url, AppError> {
     let auth_code = generate_code();
     let mut tx = pool.begin().await?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    let jwt_config = db_get_jwt_config(&mut tx).await?;
     let idp = db_get_login_provider_by_id(&mut tx, &state.idp_id).await?;
     tx.commit().await?;
 
-    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &provider_token).await?;
+    let mut claims: JwtClaims = decode_access_token(&idp, &provider_token).await?;
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
-    let token = make_auth_token(pool, &state.client_id, &idp, claims.clone()).await?;
+    let tms_token_claims = get_tms_token_claims(&http_config, &jwt_config, &state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
 
     tx = pool.begin().await?;
-    db_insert_auth_code_data(&mut tx, &auth_code, &state.client_id, &state.redirect_uri, &claims).await?;
+    db_insert_auth_code_data(&mut tx, &auth_code, &state.client_id, &state.redirect_uri,
+                             &tms_token_claims, &idp.id, &idp.identity_provider_type).await?;
     tx.commit().await?;
     let mut location = Url::parse(&state.redirect_uri)?;
     if let Some(state) = &state.client_state {
@@ -121,10 +125,12 @@ pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, id
 }
 
 pub async fn get_access_token_from_code(pool:&PgPool, client_id:&String, client_secret:&String, code:&String,
-                                        redirect_uri:&String) -> anyhow::Result<String, AppError> {
+                                        redirect_uri:&String) -> anyhow::Result<AccessToken> {
     // validate client id
     let mut tx = pool.begin().await?;
     let client = db_get_client_by_credentials(&mut tx, &client_id, client_secret).await?;
+    let http_config = db_get_http_config(&mut tx).await?;
+    let jwt_config = db_get_jwt_config(&mut tx).await?;
 
     // validate redirect uri
     let _allowed_redirect =
@@ -136,9 +142,20 @@ pub async fn get_access_token_from_code(pool:&PgPool, client_id:&String, client_
     // don't want it hanging around.
     // TODO: we could invalidate the record insted if we think it might help debuging / tracking errors down.  They would still need to be removed at some point, but we could do that once a day or whatever.  I prefer just deleting them I think.
     let auth_code_data = db_delete_auth_code_data(&mut tx, code, &client_id, &redirect_uri, time_delta).await?;
+    let idp = db_get_login_provider_by_id(&mut tx, &auth_code_data.idp_id).await?;
     tx.commit().await?;
 
-    Err(Internal("not implemented".to_string()).into())
+    let claims = from_value(auth_code_data.claims)?;
+    let tms_token_claims = get_tms_token_claims(&http_config, &jwt_config, &client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
+    let tms_token_string = make_auth_token(pool, &tms_token_claims).await?;
+
+    Ok(AccessToken{
+        access_token: tms_token_string.clone(),
+        expires_at: tms_token_claims.get_expires_at()?,
+        expires_in: tms_token_claims.get_expires_in()?,
+        id_token: String::from(""),
+        jti: tms_token_claims.get_jti()?
+    })
 }
 
 pub async fn get_provider_token(

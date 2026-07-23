@@ -71,6 +71,7 @@ where
 
     serde_json::from_str::<R>(&token_string).context("Error deserializing token response body")
 }
+
 pub async fn decode_access_token<T>(
     idp: &identity_provider_dao::IdentityProvider,
     id_token: &String,

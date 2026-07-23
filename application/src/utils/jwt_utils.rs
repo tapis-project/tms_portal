@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
+use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
 use anyhow::{Context, Result};
 use jsonwebtoken::decode_header;
 use axum::extract::{FromRequestParts, State};
@@ -8,6 +8,7 @@ use axum_extra::extract::CookieJar;
 use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Bearer;
 use axum_extra::TypedHeader;
+use chrono::{DateTime, Utc};
 use http::request::Parts;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,9 +18,7 @@ use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::AppState;
-use crate::db::client_dao::db_get_client_by_id;
-use crate::db::config_dao::{db_get_http_config, db_get_jwt_config};
-use crate::db::identity_provider_dao;
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, HttpConfig, JwtConfig};
 use crate::db::identity_provider_dao::IdentityProviderType;
 use crate::db::keys_dao::db_get_key_by_id;
 const DEFAULT_ALGORITHM: &str = "RS256";
@@ -73,6 +72,13 @@ impl TmsTokenClaims {
     }
     pub fn get_sub(&self) -> Result<String> {
         get_string_from_value(&self.sub)
+    }
+
+    pub fn get_expires_at(&self) -> Result<String> {
+        get_string_date_from_value(&self.exp)
+    }
+    pub fn get_expires_in(&self) -> Result<u64> {
+        Ok(0)
     }
 }
 
@@ -137,46 +143,19 @@ where {
 
 pub async fn make_auth_token(
     db_pool: &PgPool,
-    client_id: &String,
-    idp: &identity_provider_dao::IdentityProvider,
-    claims: JwtClaims,
+    // client_id: &String,
+    // idp_id: &String,
+    // idp_type: &IdentityProviderType,
+    tms_token_claims: &TmsTokenClaims,
 ) -> Result<String> {
     let mut tx = db_pool.begin().await?;
-    let http_config = db_get_http_config(&mut tx).await?;
+    // let http_config = db_get_http_config(&mut tx).await?;
     let jwt_config = db_get_jwt_config(&mut tx).await?;
-    // look up client to make sure it's a real client
-    let _client = db_get_client_by_id(&mut tx, client_id).await?;
     let kid = &jwt_config.signing_key_kid;
     let keys = db_get_key_by_id(&mut tx, &kid).await?;
     tx.commit().await?;
-
-    let issuer = http_config.base_url;
-    let subject = claims.get_string_claim(CLAIM_SUB)?;
-    let provider = idp.identity_provider_type.clone();
-    let idp_id = idp.id.clone();
-    let tms_subject = format!("{0}@{1}", &subject, &idp_id);
-    let tms_username = tms_subject.clone();
-
-    let jwt_expiration_minutes = jwt_config.default_expiration_minutes.parse()?;
-    let expiration = SystemTime::now() + Duration::from_mins(jwt_expiration_minutes);
-
-    let tms_token_claims = TmsTokenClaims {
-        jti: Value::from(Uuid::new_v4().to_string()),
-        iss: Value::from(issuer),
-        sub: Value::from(tms_subject),
-        aud: Value::from(client_id.clone()),
-        tms_token_type: Value::from("access"),
-        tms_username: Value::from(tms_username),
-        tms_grant_type: Value::from("password"),
-        tms_account_type: Value::from("user"),
-        tms_name: claims.get(CLAIM_NAME).map(|value| (*value).clone()),
-        tms_idp_provider: provider,
-        tms_idp_display_name: claims
-            .get(CLAIM_IDP_DISPLAY_NAME)
-            .map(|value| (*value).clone()),
-        tms_organization: claims.get(CLAIM_ORGANIZATION).map(|value| (*value).clone()),
-        exp: Value::from(expiration.duration_since(UNIX_EPOCH)?.as_secs()),
-    };
+    // let tms_token_claims = get_tms_token_claims(&http_config,
+    //         &jwt_config, &client_id, &idp_id, &idp_type, &claims).await?;
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?
     JwtEncoderBuilder::builder(
@@ -187,6 +166,38 @@ pub async fn make_auth_token(
     )
         .encode()
         .await
+}
+pub async fn get_tms_token_claims(http_config:&HttpConfig,
+                                  jwt_config:&JwtConfig,
+                                  client_id: &String,
+                                  idp_id: &String,
+                                  idp_type: &IdentityProviderType,
+                                  claims: &JwtClaims,) -> Result<TmsTokenClaims> {
+    let issuer = &http_config.base_url;
+    let subject = claims.get_string_claim(CLAIM_SUB)?;
+    let tms_subject = format!("{0}@{1}", &subject, &idp_id);
+    let tms_username = tms_subject.clone();
+
+    let jwt_expiration_minutes = jwt_config.default_expiration_minutes.parse()?;
+    let expiration = SystemTime::now() + Duration::from_mins(jwt_expiration_minutes);
+    let tms_token_claims = TmsTokenClaims {
+        jti: Value::from(Uuid::new_v4().to_string()),
+        iss: Value::from(issuer.clone()),
+        sub: Value::from(tms_subject),
+        aud: Value::from(client_id.clone()),
+        tms_token_type: Value::from("access"),
+        tms_username: Value::from(tms_username),
+        tms_grant_type: Value::from("password"),
+        tms_account_type: Value::from("user"),
+        tms_name: claims.get(CLAIM_NAME).map(|value| (*value).clone()),
+        tms_idp_provider: idp_type.clone(),
+        tms_idp_display_name: claims
+            .get(CLAIM_IDP_DISPLAY_NAME)
+            .map(|value| (*value).clone()),
+        tms_organization: claims.get(CLAIM_ORGANIZATION).map(|value| (*value).clone()),
+        exp: Value::from(expiration.duration_since(UNIX_EPOCH)?.as_secs()),
+    };
+    Ok(tms_token_claims)
 }
 
 impl Claims for JwtClaims {
@@ -206,6 +217,13 @@ fn get_string_from_value(value:&Value) -> Result<String> {
         .as_str()
         .ok_or(Unauthorized(format!("Value '{0}' is not a string", value)))?;
     Ok(String::from(string_slice_value))
+}
+fn get_string_date_from_value(value:&Value) -> Result<String> {
+    let timestamp = value.as_i64()
+        .ok_or(Unauthorized(format!("Value '{0}' is not a timestamp", value)))?;
+    let Some(datetime) = DateTime::from_timestamp(timestamp, 0)
+        else { return Err(Internal("Unable to determine expiration for token".to_string()).into())};
+    Ok(datetime.to_rfc3339())
 }
 
 
