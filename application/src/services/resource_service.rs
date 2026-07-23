@@ -25,7 +25,7 @@ use crate::utils::state_utils::encode_state;
 pub struct AccessToken {
     pub access_token: String,
     pub expires_at: String,
-    pub expires_in: u64,
+    pub expires_in: i64,
     pub id_token: String,
     pub jti: String,
 }

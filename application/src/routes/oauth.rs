@@ -12,7 +12,7 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use http::header::LOCATION;
 use http::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tms_lib::utils::service_error::ServiceError;
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::AppState;
@@ -96,6 +96,7 @@ struct OAuthTokenRequest {
     pub refresh_token: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
 struct OAuthTokenResponse {
     pub access_token: AccessToken
 }
@@ -136,7 +137,7 @@ async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
 
 #[debug_handler]
 async fn tokens_handler(State(app_state): State<AppState>,
-                        Json(oauth_token_request): Json<OAuthTokenRequest>) -> anyhow::Result<TmsResponse<AccessToken>, AppError> {
+                        Json(oauth_token_request): Json<OAuthTokenRequest>) -> anyhow::Result<TmsResponse<OAuthTokenResponse>, AppError> {
     match oauth_token_request.grant_type {
         GrantType::AuthorizationCode => {
             if let Some(code) = &oauth_token_request.code {
@@ -144,7 +145,9 @@ async fn tokens_handler(State(app_state): State<AppState>,
                                                        &oauth_token_request.client_secret, &code,
                                                        &oauth_token_request.redirect_uri).await?;
                 Ok(TmsResponse::builder(StatusCode::OK)
-                    .entity(access_token).build())
+                    .entity(OAuthTokenResponse{
+                        access_token
+                    }).build())
             } else {
                 Err(BadRequest("Authorization code was not provided".to_string()).into())
             }

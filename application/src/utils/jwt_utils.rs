@@ -13,7 +13,7 @@ use http::request::Parts;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
-use uuid::Uuid;
+use uuid::{Timestamp, Uuid};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
@@ -75,10 +75,14 @@ impl TmsTokenClaims {
     }
 
     pub fn get_expires_at(&self) -> Result<String> {
-        get_string_date_from_value(&self.exp)
+        let datetime = get_datetime_from_value(&self.exp)?;
+        Ok(datetime.to_rfc3339())
     }
-    pub fn get_expires_in(&self) -> Result<u64> {
-        Ok(0)
+    pub fn get_expires_in(&self) -> Result<i64> {
+        let datetime_now = Utc::now();
+        let datetime_exp = get_datetime_from_value(&self.exp)?;
+        let duration = datetime_exp - datetime_now;
+        Ok(duration.num_seconds())
     }
 }
 
@@ -218,12 +222,12 @@ fn get_string_from_value(value:&Value) -> Result<String> {
         .ok_or(Unauthorized(format!("Value '{0}' is not a string", value)))?;
     Ok(String::from(string_slice_value))
 }
-fn get_string_date_from_value(value:&Value) -> Result<String> {
+fn get_datetime_from_value(value:&Value) -> Result<DateTime<Utc>> {
     let timestamp = value.as_i64()
         .ok_or(Unauthorized(format!("Value '{0}' is not a timestamp", value)))?;
     let Some(datetime) = DateTime::from_timestamp_millis(timestamp)
-        else { return Err(Internal("Unable to determine expiration for token".to_string()).into())};
-    Ok(datetime.to_rfc3339())
+    else { return Err(Internal("Unable to determine expiration for token".to_string()).into())};
+    Ok(datetime)
 }
 
 
