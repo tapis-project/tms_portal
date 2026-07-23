@@ -113,7 +113,7 @@ pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, id
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs()
             // TODO:  This should be a config setting
-            + 300000,
+            + 300,
         nonce: generate_nonce(),
         client_state: state.clone(),
     };

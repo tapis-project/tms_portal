@@ -14,7 +14,7 @@ jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 jwtk = { version = "0.5.0", features = ["openssl"] }
 reqwest = { version = "0.13.2", features = ["form"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.149", features = ["default"] }
+serde_json = { version = "1.0.149", features = ["default", "arbitrary_precision"] }
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
 tms_lib = { path = "../libraries/tms_lib"}
 tms_proc_macros = { path = "../libraries/tms_proc_macros"}

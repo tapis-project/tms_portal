@@ -90,7 +90,7 @@ pub async fn get_authenticate_redirect_info(
         exp: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs()
-            + 300000,
+            + 300,
         nonce: generate_nonce(),
         client_state: None,
     };

@@ -195,7 +195,7 @@ pub async fn get_tms_token_claims(http_config:&HttpConfig,
             .get(CLAIM_IDP_DISPLAY_NAME)
             .map(|value| (*value).clone()),
         tms_organization: claims.get(CLAIM_ORGANIZATION).map(|value| (*value).clone()),
-        exp: Value::from(expiration.duration_since(UNIX_EPOCH)?.as_secs()),
+        exp: Value::from(expiration.duration_since(UNIX_EPOCH)?.as_millis()),
     };
     Ok(tms_token_claims)
 }
@@ -221,7 +221,7 @@ fn get_string_from_value(value:&Value) -> Result<String> {
 fn get_string_date_from_value(value:&Value) -> Result<String> {
     let timestamp = value.as_i64()
         .ok_or(Unauthorized(format!("Value '{0}' is not a timestamp", value)))?;
-    let Some(datetime) = DateTime::from_timestamp(timestamp, 0)
+    let Some(datetime) = DateTime::from_timestamp_millis(timestamp)
         else { return Err(Internal("Unable to determine expiration for token".to_string()).into())};
     Ok(datetime.to_rfc3339())
 }

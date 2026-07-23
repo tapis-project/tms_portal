@@ -76,7 +76,7 @@ pub async fn login_handler(
                 exp: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)?
                     .as_secs()
-                    + 300000,
+                    + 300,
                 nonce: generate_nonce(),
                 client_state: None,
             };
