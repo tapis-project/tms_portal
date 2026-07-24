@@ -5,7 +5,6 @@ use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::db::config_dao::db_get_state_key_id;
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::utils::oauth2_authorization_code_utils::OAuth2State;
 
 const DEFAULT_STATE_ALGORITHM: &str = "RS256";
 

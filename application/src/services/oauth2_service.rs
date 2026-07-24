@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::time::SystemTime;
 use anyhow::Context;
 use base64::Engine;
@@ -8,21 +7,37 @@ use rand::distr::Alphanumeric;
 use rand::RngExt;
 use rand::rngs::ThreadRng;
 use serde_json::{from_value, Value};
-use sqlx::PgPool;
+use sqlx::{PgPool};
 use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use tms_lib::utils::service_error::ServiceError::{Internal, Unauthorized};
 use crate::db::allowed_redirects_dao::{db_get_allowed_redirect};
-use crate::db::auth_code_data::{db_delete_auth_code_data, db_get_auth_code_data, db_insert_auth_code_data};
-use crate::db::client_dao::{db_get_client_by_credentials, db_get_client_by_id, Client};
-use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_oauth_config};
-use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider, IdentityProviderType};
-use crate::models::app_error::AppError;
+use crate::db::auth_code_data::{db_delete_auth_code_data, db_insert_auth_code_data};
+use crate::db::client_dao::{db_get_client_by_credentials,};
+use crate::db::config_dao::{db_get_http_config};
+use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider};
 use crate::services::login_service::AuthorizationCodeResponse;
-use crate::services::resource_service::AccessToken;
-use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, JwtClaims, TmsTokenClaims};
+use crate::utils::configuration::Configuration;
+use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, JwtClaims};
 use crate::utils::state_utils::{decode_state, encode_state};
 use crate::utils::oauth2_authorization_code_utils::{decode_access_token, get_token_for_provider, OAuth2State};
+
+pub struct AuthorizationResult {
+    pub location: String,
+    pub encoded_state: String,
+}
+
+pub struct TokenResponse {
+    pub access_token: String,
+    pub expires_at: String,
+    pub expires_in: i64,
+    pub id_token: String,
+    pub jti: String,
+}
+
+pub struct AuthorizationCallbackResult {
+    pub location: String,
+}
 
 fn generate_code() -> String {
     ThreadRng::default().sample_iter(Alphanumeric)
@@ -30,22 +45,44 @@ fn generate_code() -> String {
         .map(char::from)
         .collect()
 }
-pub async fn generate_code_and_redirect(pool:&PgPool, state:&OAuth2State, provider_token:&String) -> anyhow::Result<Url, AppError> {
+
+pub async fn authorize_code(db_pool:&PgPool, state:&Option<String>, client_id:&String, redirect_uri:&String) -> anyhow::Result<AuthorizationResult> {
+    // get what we need from the database
+    let mut tx = db_pool.begin().await?;
+
+    let configuration = Configuration::get(&db_pool).await?;
+    let idp = db_get_login_provider_by_id(&mut tx, &configuration.oauth_config.login_oauth_provider).await?;
+
+    // Check redirect uri - this fails if the redirect doesnt exist
+    let _allowed_redirect = db_get_allowed_redirect(&mut tx, &client_id, &redirect_uri).await?;
+    tx.commit().await?;
+
+    // encode our state
+    let encoded_state = get_state(&db_pool, &client_id,
+                                  redirect_uri, &idp.id, state).await?;
+
+    // compute the location url that will be used for the redirect
+    let location = get_login_redirect_location(&configuration, &idp, &encoded_state).await?;
+
+    Ok(AuthorizationResult {
+        location: location.to_string(),
+        encoded_state
+    })
+}
+
+pub async fn generate_code_and_redirect(pool:&PgPool, configuration:&Configuration, identity_provider: &IdentityProvider, state:&OAuth2State, provider_token:&String) -> anyhow::Result<Url> {
     let auth_code = generate_code();
-    let mut tx = pool.begin().await?;
-    let http_config = db_get_http_config(&mut tx).await?;
-    let jwt_config = db_get_jwt_config(&mut tx).await?;
-    let idp = db_get_login_provider_by_id(&mut tx, &state.idp_id).await?;
-    tx.commit().await?;
 
-    let mut claims: JwtClaims = decode_access_token(&idp, &provider_token).await?;
+    let mut claims: JwtClaims = decode_access_token(&identity_provider, &provider_token).await?;
+    // TODO: get iss from config
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
-    let tms_token_claims = get_tms_token_claims(&http_config, &jwt_config, &state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
+    let tms_token_claims = get_tms_token_claims(configuration, &state.client_id, &identity_provider.id, &identity_provider.identity_provider_type, &claims).await?;
 
-    tx = pool.begin().await?;
+    let mut tx = pool.begin().await?;
     db_insert_auth_code_data(&mut tx, &auth_code, &state.client_id, &state.redirect_uri,
-                             &tms_token_claims, &idp.id, &idp.identity_provider_type).await?;
+                             &tms_token_claims, &identity_provider.id, &identity_provider.identity_provider_type).await?;
     tx.commit().await?;
+
     let mut location = Url::parse(&state.redirect_uri)?;
     if let Some(state) = &state.client_state {
         location.query_pairs_mut().append_pair("state", &state);
@@ -54,56 +91,30 @@ pub async fn generate_code_and_redirect(pool:&PgPool, state:&OAuth2State, provid
     Ok(location)
 }
 
-pub async fn get_login_redirect_location(pool:&PgPool, client_id:&String, redirect_uri:&String, encoded_state:&String) -> anyhow::Result<Url, AppError> {
-    let mut tx = pool.begin().await?;
-    let oauth_config = db_get_oauth_config(&mut tx).await?;
-    let idp_id = oauth_config.login_oauth_provider;
-    let idp = db_get_login_provider_by_id(&mut tx, &idp_id).await?;
-    let http_config = db_get_http_config(&mut tx).await?;
-
-    // Check redirect uri - this fails if the redirect doesnt exist
-    db_get_allowed_redirect(&mut tx, &client_id, &redirect_uri).await?;
-    tx.commit().await?;
-
-    let callback_url = &http_config.get_oauth_provider_callback_url();
+async fn get_login_redirect_location(configuration:&Configuration,
+                                         identity_provider: &IdentityProvider,
+                                         encoded_state:&String) -> anyhow::Result<Url> {
+    let callback_url = &configuration.http_config.get_oauth_provider_callback_url();
     let encoded_nonce = BASE64_STANDARD.encode(generate_nonce().to_ne_bytes());
     let mut query_params = vec![
         ("response_type", "code"),
-        ("client_id", &idp.client_id),
+        ("client_id", &identity_provider.client_id),
         ("redirect_uri", callback_url),
         ("state", &encoded_state),
         ("nonce", &encoded_nonce),
         ("access_type", "offline"),
     ];
 
-    if let Some(scope) = &idp.scope {
+    if let Some(scope) = &identity_provider.scope {
         query_params.push(("scope", scope.as_str()))
     }
 
-    Ok(Url::parse_with_params(&idp.identity_redirect_url, query_params)?)
+    Ok(Url::parse_with_params(&identity_provider.identity_redirect_url, query_params)?)
 }
-pub async fn get_login_identity_provider(pool:&PgPool) -> anyhow::Result<IdentityProvider, AppError> {
-    let mut tx = pool.begin().await?;
-    let oauth_config = db_get_oauth_config(&mut tx).await?;
-    let idp_id = oauth_config.login_oauth_provider;
-    let idp = db_get_login_provider_by_id(&mut tx, &idp_id).await?;
-    tx.commit().await?;
-    Ok(idp)
-}
+async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, idp_id:&String,
+                       state:&Option<String>) -> anyhow::Result<String> {
 
-pub async fn get_client(pool:&PgPool, client_id:&String) -> anyhow::Result<Client, AppError> {
-    let mut tx = pool.begin().await?;
-    Ok(db_get_client_by_id(&mut tx, client_id).await?)
-}
-
-pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, idp_id:&String,
-                       state:&Option<String>) -> anyhow::Result<String, AppError> {
-    let mut tx = pool.begin().await?;
-    // Check redirect uri - this fails if the redirect doesnt exist
-    db_get_allowed_redirect(&mut tx, &client_id, &redirect_uri).await?;
-
-    tx.commit().await?;
-
+    // populate state structure
     let oauth_state = OAuth2State {
         tms_identity: String::default(), // we don't have a tms identity at this point
         client_id: client_id.clone(),
@@ -118,20 +129,19 @@ pub async fn get_state(pool:&PgPool, client_id:&String, redirect_uri:&String, id
         client_state: state.clone(),
     };
 
+    // encode state structure
     match encode_state(pool, oauth_state).await.context("Unable to encode state") {
         Ok(state_string) => Ok(state_string),
         Err(error) => Err(Internal(error.to_string()).into()),
     }
 }
 
-pub async fn get_access_token_from_code(pool:&PgPool, client_id:&String, client_secret:&String, code:&String,
-                                        redirect_uri:&String) -> anyhow::Result<AccessToken> {
+pub async fn get_access_token_from_code(db_pool:&PgPool, client_id:&String, client_secret:&String, code:&String,
+                                        redirect_uri:&String) -> anyhow::Result<TokenResponse> {
     // validate client id
-    let mut tx = pool.begin().await?;
+    let mut tx = db_pool.begin().await?;
     let client = db_get_client_by_credentials(&mut tx, &client_id, client_secret).await?;
-    let http_config = db_get_http_config(&mut tx).await?;
-    let jwt_config = db_get_jwt_config(&mut tx).await?;
-
+    let configuration = Configuration::get(db_pool).await?;
     // validate redirect uri
     let _allowed_redirect =
         db_get_allowed_redirect(&mut tx, &client.id, &redirect_uri).await?;
@@ -146,10 +156,10 @@ pub async fn get_access_token_from_code(pool:&PgPool, client_id:&String, client_
     tx.commit().await?;
 
     let claims = from_value(auth_code_data.claims)?;
-    let tms_token_claims = get_tms_token_claims(&http_config, &jwt_config, &client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
-    let tms_token_string = make_auth_token(pool, &tms_token_claims).await?;
+    let tms_token_claims = get_tms_token_claims(&configuration, &client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
+    let tms_token_string = make_auth_token(db_pool, &tms_token_claims).await?;
 
-    Ok(AccessToken{
+    Ok(TokenResponse{
         access_token: tms_token_string.clone(),
         expires_at: tms_token_claims.get_expires_at()?,
         expires_in: tms_token_claims.get_expires_in()?,
@@ -183,13 +193,29 @@ pub async fn get_provider_token(
     let token:AuthorizationCodeResponse = get_token_for_provider(&idp, &http_config.get_oauth_provider_callback_url(), code).await?;
     dbg!(&token);
     Ok(token.id_token)
-/*
-    let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
-    claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
-    dbg!(&claims);
+}
 
-    make_auth_token(pool, &decoded_state.client_id, &idp, claims).await
+pub async fn process_authorization_callback(db_pool:&PgPool, internal_oauth_state:&String, client_state:&String, code:&String) -> anyhow::Result<AuthorizationCallbackResult> {
+    // redirect browser back to the post-login page (taken from state - validated in login step).
+    let decoded_internal_state:OAuth2State = decode_state(db_pool, internal_oauth_state).await?;
 
- */
+    let mut tx = db_pool.begin().await?;
+    let configuration= Configuration::get(db_pool).await?;
+    let identity_provider = db_get_login_provider_by_id(&mut tx, &decoded_internal_state.idp_id).await?;
+    tx.commit().await?;
+
+    // exchange code for token (state validated in handle_callback)
+    let provider_token = get_provider_token(
+        db_pool,
+        client_state,
+        code,
+        internal_oauth_state,
+    ).await?;
+
+
+    let location = generate_code_and_redirect(db_pool, &configuration, &identity_provider, &decoded_internal_state, &provider_token).await?;
+    Ok(AuthorizationCallbackResult{
+        location: location.to_string(),
+    })
 }
 

@@ -13,14 +13,16 @@ use http::request::Parts;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
-use uuid::{Timestamp, Uuid};
+use uuid::{Uuid};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::AppState;
-use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, HttpConfig, JwtConfig};
+use crate::db::config_dao::{db_get_jwt_config};
 use crate::db::identity_provider_dao::IdentityProviderType;
 use crate::db::keys_dao::db_get_key_by_id;
+use crate::utils::configuration::Configuration;
+
 const DEFAULT_ALGORITHM: &str = "RS256";
 
 const CLAIM_SUB: &str = "sub";
@@ -171,18 +173,17 @@ pub async fn make_auth_token(
         .encode()
         .await
 }
-pub async fn get_tms_token_claims(http_config:&HttpConfig,
-                                  jwt_config:&JwtConfig,
+pub async fn get_tms_token_claims(configuration:&Configuration,
                                   client_id: &String,
                                   idp_id: &String,
                                   idp_type: &IdentityProviderType,
                                   claims: &JwtClaims,) -> Result<TmsTokenClaims> {
-    let issuer = &http_config.base_url;
+    let issuer = &configuration.http_config.base_url;
     let subject = claims.get_string_claim(CLAIM_SUB)?;
     let tms_subject = format!("{0}@{1}", &subject, &idp_id);
     let tms_username = tms_subject.clone();
 
-    let jwt_expiration_minutes = jwt_config.default_expiration_minutes.parse()?;
+    let jwt_expiration_minutes = configuration.jwt_config.default_expiration_minutes.parse()?;
     let expiration = SystemTime::now() + Duration::from_mins(jwt_expiration_minutes);
     let tms_token_claims = TmsTokenClaims {
         jti: Value::from(Uuid::new_v4().to_string()),

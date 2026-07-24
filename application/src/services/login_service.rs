@@ -15,7 +15,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
-use crate::db::config_dao::{db_get_http_config, db_get_jwt_config};
+use crate::utils::configuration::Configuration;
 use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, TmsTokenClaims};
 use crate::utils::state_utils::decode_state;
 
@@ -43,7 +43,7 @@ pub async fn get_identity_providers(pool: &PgPool) -> Result<GetIdentityProvider
 }
 
 pub async fn handle_callback(
-    pool: &PgPool,
+    db_pool: &PgPool,
     state: &String,
     code: &String,
     cookie_state: &String,
@@ -52,30 +52,30 @@ pub async fn handle_callback(
         return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
 
-    let decoded_state:OAuth2State = decode_state(pool, state)
+    let decoded_state:OAuth2State = decode_state(db_pool, state)
         .await
         .context("Unable to decode state query param")?;
     dbg!(&decoded_state);
 
-    let mut tx = pool.begin().await?;
+    let mut tx = db_pool.begin().await?;
     let idp = db_get_login_provider_by_id(&mut tx, &decoded_state.idp_id)
         .await
         .context("Unable to get idp for database")?;
-    let http_config = db_get_http_config(&mut tx).await?;
-    let jwt_config = db_get_jwt_config(&mut tx).await?;
+    let configuration = Configuration::get(db_pool).await?;
     tx.commit().await?;
 
 
     let token:AuthorizationCodeResponse =
-        get_token_for_provider(&idp, &http_config.get_identity_provider_callback_url(), code).await?;
+        get_token_for_provider(&idp, &configuration.http_config.get_identity_provider_callback_url(), code).await?;
     dbg!(&token);
 
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
+    // TODO: get iss from config
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
     dbg!(&claims);
 
-    let tms_token_claims = get_tms_token_claims(&http_config, &jwt_config, &decoded_state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
-    make_auth_token(pool, &tms_token_claims).await
+    let tms_token_claims = get_tms_token_claims(&configuration, &decoded_state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
+    make_auth_token(db_pool, &tms_token_claims).await
 }
 
 pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIResponse, AppError> {
