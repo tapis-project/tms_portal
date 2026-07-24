@@ -4,3 +4,6 @@
 # JetBrains RustRover files
 .idea
 .run
+.data/
+result
+dist/
