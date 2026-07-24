@@ -1,7 +1,7 @@
 use crate::models::app_error::AppError;
 use crate::models::login_api::WhoAmIResponse;
-use crate::services::login_service::TmsTokenClaims;
 use crate::services::token_provider::TokenProvider;
+use crate::utils::jwt_utils::TmsTokenClaims;
 
 pub struct GlobusTokenProvider {}
 

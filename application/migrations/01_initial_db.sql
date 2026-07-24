@@ -49,10 +49,8 @@ CREATE TABLE IF NOT EXISTS clients
     id      TEXT PRIMARY KEY            NOT NULL,
     name    TEXT                        NOT NULL,
     secret  TEXT                        NOT NULL,
-    kid     TEXT                        NOT NULL,
     created               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    constraint fk_kid FOREIGN KEY (kid) REFERENCES keys (kid)
+    updated               TIMESTAMPTZ       NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
 
 CREATE TABLE IF NOT EXISTS configuration

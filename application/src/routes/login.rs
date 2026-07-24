@@ -4,13 +4,10 @@ use crate::db::identity_provider_dao::db_get_login_provider_by_id;
 use crate::models::tms_response::TmsResponse;
 use crate::models::login_api::{AuthorizeByIdpRequest, IdentityProvider, WhoAmIResponse};
 use crate::services::login_service::{
-    decode_state, encode_state, get_identity_providers, handle_callback, whoami,
+    get_identity_providers, handle_callback, whoami,
 };
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
-use crate::utils::oauth2_authorization_code_utils::{
-    AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME,
-    TOKEN_COOKIE_NAME,
-};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::http::header::LOCATION;
@@ -24,11 +21,13 @@ use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use jsonwebtoken::signature::rand_core::{OsRng, RngCore};
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 use url::Url;
+use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::models::app_error::AppError;
+use crate::utils::state_utils::{decode_state, encode_state};
+
 /*
 This file handles the web part of logging into the TMS portal.  This includes tasks such as:
 - getting the list of login identity providers
@@ -77,7 +76,9 @@ pub async fn login_handler(
                 exp: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)?
                     .as_secs()
-                    + 300000,
+                    + 300,
+                nonce: generate_nonce(),
+                client_state: None,
             };
 
             let encoded_state = match encode_state(&app_state.db_pool, oauth_state).await {
@@ -89,16 +90,13 @@ pub async fn login_handler(
             let http_config = db_get_http_config(&mut tx).await?;
             tx.commit().await?;
             let callback_url = &http_config.get_identity_provider_callback_url();
-            let mut nonce = [0u8; 12];
-            OsRng.fill_bytes(&mut nonce);
-            let nonce_slice = BASE64_STANDARD.encode(nonce);
-            // TODO:  make a real nonce
+            let encoded_nonce = BASE64_STANDARD.encode(generate_nonce().to_ne_bytes());
             let mut query_params = vec![
                 ("response_type", "code"),
                 ("client_id", &idp.client_id),
                 ("redirect_uri", callback_url),
                 ("state", &encoded_state),
-                ("nonce", &nonce_slice),
+                ("nonce", &encoded_nonce),
                 ("access_type", "offline"),
             ];
 
@@ -181,7 +179,7 @@ pub async fn callback_handler(
     let updated_jar = jar.clone().add(c);
 
     // redirect browser back to the post-login page (taken from state - validated in login step).
-    let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
+    let decoded_state:OAuth2State = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), decoded_state.redirect_uri)].into_iter());
 

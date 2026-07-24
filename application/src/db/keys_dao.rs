@@ -26,7 +26,7 @@ impl From<&PgRow> for Key {
 
 pub async fn db_get_key_by_id<'a>(tx: &mut PgTransaction<'a>, kid: &String) -> anyhow::Result<Key> {
     let row = query(
-        "select kid, jwt_public_key, jwt_private_key, created, updated from keys where kid = $1",
+        "select * from keys where kid = $1",
     )
     .bind(kid)
     .fetch_one(&mut **tx)
