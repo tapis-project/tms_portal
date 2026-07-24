@@ -1,6 +1,10 @@
 # Documentation
-REST api documentation - https://tapis-project.github.io/tms-live-docs/
-REST api documentation source code - https://github.com/tapis-project/tms-live-docs
+|  |  |
+| :---         | :--- |
+| API docs     | https://tapis-project.github.io/tms-live-docs    |
+| docs source  | https://github.com/tapis-project/tms-live-docs   |
+
+
 # Build Instructions
 
 ## Prerequistes
