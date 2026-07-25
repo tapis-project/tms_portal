@@ -2,13 +2,12 @@ use crate::models::tms_response::TmsResponse;
 use crate::models::resource_api::{
     GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest,
 };
-use crate::services::login_service::decode_state;
 use crate::services::resource_service::{
     get_authenticate_redirect_info, get_resource_provider_token, get_resource_providers,
 };
 use tms_lib::utils::service_error::ServiceError::Unauthorized;
-use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, CLIENT_ID_TMS};
-use crate::{utils, AppState};
+use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, OAuth2State, CLIENT_ID_TMS};
+use crate::{AppState};
 use anyhow::Result;
 use axum::extract::{Path, Query, State};
 use axum::http::header::LOCATION;
@@ -24,6 +23,7 @@ use std::string::ToString;
 use uuid::Uuid;
 use crate::models::app_error::AppError;
 use crate::utils::jwt_utils::JwtValidator;
+use crate::utils::state_utils::decode_state;
 
 const RP_STATE_PREFIX:&str = "state_rp_id_";
 const RP_COOKIE_PATH:&str = "/resources/providers";
@@ -106,7 +106,7 @@ pub async fn list_resource_provider_handler(
 pub async fn get_resource_handler(
     State(_app_state): State<AppState>,
     Path((provider_id, provider_account_id)): Path<(String, String)>,
-    JwtValidator(security_context): JwtValidator,
+    JwtValidator(_security_context): JwtValidator,
 ) -> Result<TmsResponse<GetResourceResponse>, AppError> {
     // Check that token is valid by getting claims
     let r1 = Resource {
@@ -146,7 +146,7 @@ pub async fn get_resource_provider_callback_handler(
     jar: CookieJar,
     query_params: Query<AuthCodeQueryParams>,
 ) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
-    let decoded_state = decode_state(&app_state.db_pool, &query_params.state).await?;
+    let decoded_state:OAuth2State = decode_state(&app_state.db_pool, &query_params.state).await?;
     let resource_provider_id = decoded_state.idp_id;
 
     // Get the state cookie set during the login process.
@@ -158,7 +158,7 @@ pub async fn get_resource_provider_callback_handler(
         return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
 
-    let decoded_state = decode_state(&app_state.db_pool, &state_cookie.value().to_string()).await?;
+    let decoded_state:OAuth2State = decode_state(&app_state.db_pool, &state_cookie.value().to_string()).await?;
 
     get_resource_provider_token(
         &app_state.db_pool,

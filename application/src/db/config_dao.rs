@@ -8,6 +8,7 @@ use url::Url;
 
 const CONFIG_NAME_STATE_KEY: &str = "state_key";
 const CONFIG_NAME_HTTP_CONFIG: &str = "http_config";
+const CONFIG_NAME_OAUTH_CONFIG: &str = "oauth_config";
 const CONFIG_NAME_JWT_CONFIG: &str = "jwt_config";
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StateKey {
@@ -24,8 +25,20 @@ impl TryFrom<&PgRow> for StateKey {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JwtConfig {
     pub default_expiration_minutes: String,
+    pub signing_key_kid: String,
 }
 impl TryFrom<&PgRow> for JwtConfig {
+    type Error = Error;
+
+    fn try_from(row: &PgRow) -> Result<Self, Self::Error> {
+        Ok(serde_json::from_value(row.get("config_value"))?)
+    }
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OAuthConfig {
+    pub login_oauth_provider: String,
+}
+impl TryFrom<&PgRow> for OAuthConfig {
     type Error = Error;
 
     fn try_from(row: &PgRow) -> Result<Self, Self::Error> {
@@ -37,6 +50,7 @@ pub struct HttpConfig {
     pub base_url: String,
     pub identity_provider_callback_endpoint: String,
     pub resource_provider_callback_endpoint: String,
+    pub oauth_provider_callback_endpoint: String,
     pub token_endpoint: String,
     pub authorization_endpoint: String,
     pub revocation_endpoint: String,
@@ -49,6 +63,9 @@ impl HttpConfig {
     }
     pub fn get_resource_provider_callback_url(&self) -> String {
         self.make_tms_url(&self.base_url, &self.resource_provider_callback_endpoint)
+    }
+    pub fn get_oauth_provider_callback_url(&self) -> String {
+        self.make_tms_url(&self.base_url, &self.oauth_provider_callback_endpoint)
     }
     pub fn get_token_url(&self) -> String {
         self.make_tms_url(&self.base_url, &self.token_endpoint)
@@ -109,6 +126,15 @@ pub async fn db_get_http_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<Ht
         .await?;
     dbg!(&row);
     HttpConfig::try_from(&row)
+}
+
+pub async fn db_get_oauth_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<OAuthConfig> {
+    let row = query("select config_value from configuration where config_name = $1")
+        .bind(CONFIG_NAME_OAUTH_CONFIG)
+        .fetch_one(&mut **tx)
+        .await?;
+    dbg!(&row);
+    OAuthConfig::try_from(&row)
 }
 
 pub async fn db_get_jwt_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<JwtConfig> {

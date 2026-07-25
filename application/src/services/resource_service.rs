@@ -2,7 +2,6 @@ use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
 use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_providers};
 use crate::models::resource_api::GetResourceProviderResponse;
-use crate::services::login_service::encode_state;
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal};
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::{Context, Result};
@@ -17,14 +16,16 @@ use serde_json::Value;
 use url::Url;
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
+use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login};
 use crate::utils::jwt_utils::{SecurityContext};
+use crate::utils::state_utils::encode_state;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessToken {
     pub access_token: String,
     pub expires_at: String,
-    pub expires_in: u64,
+    pub expires_in: i64,
     pub id_token: String,
     pub jti: String,
 }
@@ -89,7 +90,9 @@ pub async fn get_authenticate_redirect_info(
         exp: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs()
-            + 300000,
+            + 300,
+        nonce: generate_nonce(),
+        client_state: None,
     };
 
     let encoded_state = match encode_state(&db_pool, oauth_state).await {
@@ -117,7 +120,6 @@ pub async fn get_authenticate_redirect_info(
         query_params.push(("scope", scope.as_str()))
     }
 
-    // TODO:  make a real nonce
     let identity_redirect_url = Url::parse_with_params(&rp.identity_redirect_url, query_params)?;
 
     Ok(ResourceProviderAuthorizeInfo {
@@ -158,7 +160,7 @@ pub async fn get_resource_provider_token(
         _ => return Err(BadRequest("Unable to retreive subject from access token".to_string()).into())
     };
 
-    // I don't think we need this, right?
+    // TODO: I don't think we need this, right?
 //    let refresh_token = reponse.result.refresh_token;
 
     let mut tx = db_pool.begin().await?;

@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, ItemFn, Pat, PatType, PatIdent, Ident, LitStr};
+use syn::{parse_macro_input, FnArg, ItemFn, Ident};
 //use crate::utils::jwt_utils::JwtValidator;
 
 #[proc_macro_attribute]

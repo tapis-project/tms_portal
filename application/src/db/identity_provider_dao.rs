@@ -68,11 +68,19 @@ pub enum IdentityProviderType {
 impl FromStr for IdentityProviderType {
     type Err = ServiceError;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "globus" => Ok(IdentityProviderType::Globus),
-            "tacc_tapis" => Ok(IdentityProviderType::TaccTapis),
-            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", s))),
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        /*
+                match value {
+            v if v.eq_ignore_ascii_case("authorization_code") => Ok(GrantType::AuthorizationCode),
+            v if v.eq_ignore_ascii_case("refresh_token") => Ok(GrantType::RefreshToken),
+            _ => Err(BadRequest(format!("Unknown GrantType {}", value))),
+        }
+
+         */
+        match value {
+            idp_type if idp_type.eq_ignore_ascii_case("globus") => Ok(IdentityProviderType::Globus),
+            idp_type if idp_type.eq_ignore_ascii_case("tacc_tapis") => Ok(IdentityProviderType::TaccTapis),
+            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", value))),
         }
     }
 }
@@ -190,4 +198,17 @@ pub async fn db_get_resource_provider_by_id<'a>(
     .fetch_one(&mut **tx)
     .await?;
     IdentityProvider::try_from(&rp_query_result)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+    use crate::db::identity_provider_dao::IdentityProviderType;
+
+    #[test]
+    fn test_idp_type_from_str() {
+        assert!(IdentityProviderType::from_str("test").is_err());
+        assert_eq!(IdentityProviderType::from_str("Globus").unwrap(), IdentityProviderType::Globus);
+        assert_eq!(IdentityProviderType::from_str("tacc_tapis").unwrap(), IdentityProviderType::TaccTapis);
+    }
 }

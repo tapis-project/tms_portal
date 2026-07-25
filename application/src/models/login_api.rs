@@ -1,6 +1,4 @@
 use crate::db::identity_provider_dao;
-use axum::response::{IntoResponse, Response};
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;

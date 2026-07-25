@@ -1,5 +1,5 @@
 use crate::db::client_dao::db_get_client_by_id;
-use crate::db::config_dao::db_get_http_config;
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config};
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::models::tms_response::TmsResponse;
 use crate::AppState;
@@ -89,8 +89,10 @@ pub async fn jwks_json_handler(
     State(app_state): State<AppState>,
 ) -> Result<TmsResponse<JwkSet>, AppError> {
     let mut tx = app_state.db_pool.begin().await?;
-    let client = db_get_client_by_id(&mut tx, &client_id).await?;
-    let key = db_get_key_by_id(&mut tx, &client.kid).await?;
+    // lookup client ot make sure it's a real client id
+    let _client = db_get_client_by_id(&mut tx, &client_id).await?;
+    let jwt_config = db_get_jwt_config(&mut tx).await?;
+    let key = db_get_key_by_id(&mut tx, &jwt_config.signing_key_kid).await?;
     tx.commit().await?;
 
     let public_key_string = key.jwt_public_key;

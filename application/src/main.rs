@@ -8,7 +8,7 @@ mod services;
 mod utils;
 
 use crate::config::init_db;
-use crate::routes::{login, resource, well_known};
+use crate::routes::{login, oauth, resource, well_known};
 //use axum_extra::extract::cookie::Key;
 use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
 use axum::handler::HandlerWithoutStateExt;
@@ -76,6 +76,7 @@ async fn main() {
         .merge(well_known::router().await)
         .merge(login::router().await)
         .merge(resource::router().await)
+        .merge(oauth::router().await)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
         .nest_service("/assets", ServeDir::new("dist/assets"))
