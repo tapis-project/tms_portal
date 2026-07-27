@@ -17,7 +17,10 @@
         packages = [
           pkgs.httpie
           pkgs.jq
-          self'.packages.postgres
+          pkgs.postgresql
+          self'.packages.postgres-stack
+          pkgs.glibcLocalesUtf8
+          pkgs.locale
         ];
       };
     };
