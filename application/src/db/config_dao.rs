@@ -50,7 +50,7 @@ impl TryFrom<&PgRow> for OAuthConfig {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RuntimeConfig {
     pub config_directory: String,
-    pub logfile_name: String,
+    pub logging_config_file_name: String,
     // TODO:  put db host and db port in here?
 }
 

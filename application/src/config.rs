@@ -16,7 +16,7 @@ pub async fn init_db(connection_url: &String) -> PgPool {
 
 pub async fn init_logging(runtime_config: &RuntimeConfig) {
     let config_dir = Path::new(runtime_config.config_directory.as_str());
-    let logging_config_path = config_dir.join(runtime_config.logfile_name.as_str());
+    let logging_config_path = config_dir.join(runtime_config.logging_config_file_name.as_str());
     match log4rs::init_file(logging_config_path, Default::default()) {
         Ok(_) => (),
         Err(error) => {
