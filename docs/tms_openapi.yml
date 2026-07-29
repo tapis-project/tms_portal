@@ -150,6 +150,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListResourceProvidersResponse'
 
+  "/resources/providers/links":
+    get:
+      tags:
+        - Resource
+      summary: getLinkedResourceAccounts
+      description: Get a list of the resource providers that have been linked to the current tms account
+      security:
+        - Bearer: [ ]
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetLinkedResourceProviderResponse'
+
+  "/resources/providers/links/rp_id/{resource_provider_id}/rp_account_id/{resource_provider_account_id}":
+    delete:
+      tags:
+        - Resource
+      summary: unlinkResourceAccount
+      description: Unlink a resource provider account from the current tms account
+      security:
+        - Bearer: [ ]
+      parameters:
+        - name: resource_provider_uuid
+          description: The uuid of the resource provider to remove the link for
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: resource_provider_account_id
+          description: The uuid of the resource provider account id to remove the link for
+          required: true
+          schema:
+            type: string
+          in: path
+
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnlinkResourceProviderResponse'
+
   "/resources/providers/authorize":
     post:
       tags:
@@ -172,6 +218,85 @@ paths:
               schema:
                 type: string
               description: redirect url
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsErrorResponse'
+
+  "/oauth2/authorize":
+    get:
+      tags:
+        - OAuth2
+      summary: authorize
+      description: authorize endpoint for oauth2
+      parameters:
+        - name: response_type
+          description: Response type expected from authorize - currently only "code is" supported
+          required: true
+          schema:
+            type: string
+          in: query
+        - name: response_type
+          description: Response type expected from authorize - currently only "code is" supported
+          required: true
+          schema:
+            type: string
+          in: query
+        - name: client_id
+          description: Response type expected from authorize - currently only "code is" supported
+          required: true
+          schema:
+            type: string
+          in: query
+        - name: redirect_uri
+          description: Response type expected from authorize - currently only "code is" supported
+          required: true
+          schema:
+            type: string
+          in: query
+        - name: scope
+          description: Response type expected from authorize - currently only "code is" supported
+          required: false
+          schema:
+            type: string
+          in: query
+        - name: state
+          description: Response type expected from authorize - currently only "code is" supported
+          required: false
+          schema:
+            type: string
+          in: query
+      responses:
+        "307":
+          description: Temporary redirect
+          headers:
+            location:
+              schema:
+                type: string
+              description: redirect url
+
+
+  "/oauth2/tokens":
+    post:
+      tags:
+      - OAuth2
+      summary: tokens
+      description: OAuth2 tokens endpoint.  At present only the grant_type code is supported.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthTokenRequest'
+
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
         "401":
           description: Unauthorized
           content:
@@ -258,6 +383,24 @@ components:
           items:
             $ref: '#/components/schemas/IdentityProvider'
 
+    GetLinkedResourceProviderResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceProviderLink'
+
+    UnlinkResourceProviderResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          $ref: '#/components/schemas/ResourceProviderLink'
+
     TmsCallbackResponse:
       type: object
       properties:
@@ -282,6 +425,20 @@ components:
         userInfoUrl:
           type: string
 
+    ResourceProviderLink:
+      type: object
+      properties:
+        tms_identity:
+          type: string
+        resource_provider_uuid:
+          type: string
+        resource_provider_account:
+          type: string
+        last_login:
+          type: string
+        enabled:
+          type: boolean
+
     Resource:
       type: object
       properties:
@@ -305,3 +462,45 @@ components:
         redirect_url:
           type: string
 
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          $ref: '#/components/schemas/AccessToken'
+
+    AccessToken:
+      type: object
+      properties:
+        access_token:
+          type: string
+        expires_at:
+          type: string
+        expires_in:
+          type: i64,
+        id_token:
+          type: string
+        jti:
+          type: string
+
+    OAuthTokenRequest:
+      required:
+        - client_id
+        - client_secret
+        - grant_type
+        - redirect_uri
+      type: object
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        grant_type:
+          type: string
+          enum:
+            - authorization_code
+        redirect_uri:
+          type: string,
+        code:
+          type: string
+        refresh_token:
+          type: string

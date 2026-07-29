@@ -1,8 +1,11 @@
+use std::collections::HashSet;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
-use sqlx::{query, PgTransaction, Row};
+use sqlx::{query, Error, PgTransaction, Row};
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
+use tms_lib::utils::service_error::ServiceError::BadRequest;
+use crate::db::identity_provider_dao::IdentityProvider;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ResourceAccountLogin {
@@ -65,4 +68,40 @@ pub async fn db_add_or_update_resource_account_login<'a>(
         Ok(row) => Ok(ResourceAccountLogin::from(&row)),
         Err(error) => Err(anyhow!(error)),
     }
+}
+pub async fn db_delete_resource_provider_link<'a>(
+    tx: &mut PgTransaction<'a>, tms_identity: &String, resource_provider_id: &Uuid, account_id: &String
+) -> anyhow::Result<ResourceAccountLogin> {
+    match query(
+        "delete from resource_provider_account_logins where
+                     tms_identity = $1 and resource_provider_uuid = $2 and resource_provider_account = $3 returning *",
+    ).bind(tms_identity)
+        .bind(resource_provider_id)
+        .bind(account_id)
+        .fetch_one(&mut **tx)
+        .await {
+        Ok(row) => Ok(ResourceAccountLogin::from(&row)),
+        Err(Error::RowNotFound) => Err(BadRequest(format!("Resource provider with uuid {} not linked for account id {}", resource_provider_id, account_id)).into()),
+        Err(error) => Err(anyhow!(error))
+    }
+}
+pub async fn db_get_resource_provider_links_for_identity<'a>(
+    tx: &mut PgTransaction<'a>, tms_identity: &String
+) -> anyhow::Result<HashSet<ResourceAccountLogin>> {
+    let row_result = match query(
+        "select * from resource_provider_account_logins where
+                     tms_identity = $1",
+    ).bind(tms_identity)
+        .fetch_all(&mut **tx)
+        .await {
+        Ok(rows) => Ok(rows),
+        Err(error) => Err(anyhow!(error))
+    };
+
+    let mut account_logins: Vec<ResourceAccountLogin> = vec![];
+    for row in &row_result? {
+        account_logins.push(ResourceAccountLogin::from(row));
+    }
+
+    Ok(HashSet::from_iter(account_logins))
 }

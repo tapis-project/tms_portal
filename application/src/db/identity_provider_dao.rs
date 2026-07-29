@@ -1,13 +1,14 @@
 use tms_lib::utils::service_error::{ ServiceError, ServiceError::NotFound };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
-use sqlx::{query, PgTransaction, Row};
+use sqlx::{query, Error, PgTransaction, Row};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use tms_lib::utils::service_error::ServiceError::BadRequest;
 /*
 Identity providers can be for either resources or for logins.  There's a boolean for
 the support of each - supports_login, supports_resources.  I guess in retrospect it should
@@ -187,17 +188,33 @@ pub async fn db_get_resource_provider_by_id<'a>(
     tx: &mut PgTransaction<'a>,
     provider_id: &String,
 ) -> Result<IdentityProvider> {
-    let rp_query_result = query(
-        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
-                     oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
-                     oauth2_public_key, scope, provider_type,
-                     supports_login, supports_resources, created, updated from identity_providers
+    match query(
+        "select * from identity_providers
                      where id = $1 and supports_resources = true",
     )
     .bind(provider_id)
     .fetch_one(&mut **tx)
-    .await?;
-    IdentityProvider::try_from(&rp_query_result)
+    .await {
+        Ok(row) => Ok(IdentityProvider::try_from(&row)?),
+        Err(Error::RowNotFound) => Err(BadRequest("Resource provider not found".to_string()).into()),
+        Err(error) => Err(anyhow!(error)),
+    }
+}
+pub async fn db_get_resource_provider_by_uuid<'a>(
+    tx: &mut PgTransaction<'a>,
+    provider_uuid: &Uuid,
+) -> Result<IdentityProvider> {
+    match query(
+        "select * from identity_providers
+                     where uuid = $1 and supports_resources = true",
+    )
+        .bind(provider_uuid)
+        .fetch_one(&mut **tx)
+        .await {
+        Ok(row) => Ok(IdentityProvider::try_from(&row)?),
+        Err(Error::RowNotFound) => Err(BadRequest("Resource provider not found".to_string()).into()),
+        Err(error) => Err(anyhow!(error)),
+    }
 }
 
 #[cfg(test)]

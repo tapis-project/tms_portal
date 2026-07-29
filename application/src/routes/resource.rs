@@ -1,17 +1,13 @@
 use crate::models::tms_response::TmsResponse;
-use crate::models::resource_api::{
-    GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest,
-};
-use crate::services::resource_service::{
-    get_authenticate_redirect_info, get_resource_provider_token, get_resource_providers,
-};
+use crate::models::resource_api::{GetLinkedResourceProviderResponse, GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest, UnlinkResourceProviderResponse};
+use crate::services::resource_service::{get_authenticate_redirect_info, get_linked_resource_providers, get_resource_provider_token, get_resource_providers, unlink_resource_provider};
 use tms_lib::utils::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, OAuth2State, CLIENT_ID_TMS};
 use crate::{AppState};
 use anyhow::Result;
 use axum::extract::{Path, Query, State};
 use axum::http::header::LOCATION;
-use axum::routing::{get};
+use axum::routing::{delete, get};
 use axum::{debug_handler, Router};
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
@@ -32,6 +28,8 @@ pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/resources/providers", get(list_resource_provider_handler))
         .route("/resources/{provider_id}/{provider_account_id}", get(get_resource_handler))
+        .route("/resources/providers/links/rp_uuid/{resource_provider_uuid}/rp_account_id/{resource_provider_account_id}", delete(unlink_resource_provider_handler))
+        .route("/resources/providers/links", get(get_linked_resource_provider_handler))
         .route("/resources/providers/authorize", get(authorize_handler))
         .route(
             "/resources/providers/callback",
@@ -100,6 +98,25 @@ pub async fn list_resource_provider_handler(
 ) -> Result<TmsResponse<GetResourceProviderResponse>, AppError> {
     let linked_only = query_params.linked_only.unwrap_or_else(|| false);
     let result = get_resource_providers(&security_context, &app_state.db_pool, &linked_only).await?;
+    Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
+}
+#[debug_handler]
+pub async fn unlink_resource_provider_handler (
+    State(app_state): State<AppState>,
+    Path((resource_provider_uuid, resource_provider_account_id)):Path<(String, String)>,
+    JwtValidator(security_context): JwtValidator,
+) -> Result<TmsResponse<UnlinkResourceProviderResponse>, AppError> {
+    let resource_provider_uuid = Uuid::parse_str(resource_provider_uuid.as_str())?;
+    let result = unlink_resource_provider(&security_context, &app_state.db_pool,
+                                          &resource_provider_uuid, &resource_provider_account_id).await?;
+    Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
+}
+#[debug_handler]
+pub async fn get_linked_resource_provider_handler (
+    State(app_state): State<AppState>,
+    JwtValidator(security_context): JwtValidator,
+) -> Result<TmsResponse<GetLinkedResourceProviderResponse>, AppError> {
+    let result = get_linked_resource_providers(&security_context, &app_state.db_pool).await?;
     Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
 }
 #[debug_handler]
