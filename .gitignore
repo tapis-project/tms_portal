@@ -6,4 +6,4 @@
 .run
 .data/
 result
-dist/
+dist

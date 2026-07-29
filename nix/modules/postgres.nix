@@ -11,7 +11,7 @@
           };
           address = lib.mkOption {
             type = lib.types.str;
-            default = "0.0.0.0";
+            default = "localhost";
             description = "Address where Postgres server listens";
           };
           user = lib.mkOption {
@@ -46,7 +46,7 @@
           };
           admin.email = lib.mkOption {
             type = lib.types.str;
-            default = "admin@local";
+            default = "admin@example.org";
             description = "Login email for Web Postgres Admin interface";
           };
           admin.password = lib.mkOption {
