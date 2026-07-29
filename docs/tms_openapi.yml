@@ -166,7 +166,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLinkedResourceProviderResponse'
 
-  "/resources/providers/links/rp_id/{resource_provider_id}/rp_account_id/{resource_provider_account_id}":
+  "/resources/providers/links/rp_uuid/{resource_provider_id}/rp_account_id/{resource_provider_account_id}":
     delete:
       tags:
         - Resource
