@@ -43,9 +43,9 @@ VALUES('<put your state signing kid here>',
 -----END PRIVATE KEY-----'
 );
 
--- Add tms client (reference the kid for the client)
-INSERT INTO clients (id, name, secret, kid) 
-        VALUES('tms', 'Tms Service', 'tms', '<put your token signing kid here>');
+-- Add tms client
+INSERT INTO clients (id, name, secret) 
+        VALUES('tms', 'Tms Service', 'tms');
 
 -- Add allowed redirects (with and without trailing slash)
 INSERT INTO allowed_redirects (client_id, uri) 
@@ -55,23 +55,21 @@ INSERT INTO allowed_redirects (client_id, uri)
         VALUES('tms', 'http://localhost:8080/');
 
 -- Add allowed redirects for resource provider oauth callback
-insert into allowed_redirects (uri, client_id)
-        VALUES('http://localhost:8080/resources/providers/callback', 'tms');
+INSERT INTO allowed_redirects (uri, client_id)
+        VALUES ('http://localhost:8080/resources/providers/callback', 'tms');
 
 -- Add configuration settings
 INSERT INTO configuration (config_name, config_value) 
         VALUES ('state_key', '{"kid":"<put your state signing kid here>"}'::jsonb);
 INSERT INTO configuration (config_name, config_value) 
-        VALUES ('jwt_config', '{"default_expiration_minutes":"60"}'::jsonb);
-
+        VALUES ('jwt_config', '{"default_expiration_minutes":"60", "signing_key_kid":"<put your token signing kid here>"}'::jsonb);
+INSERT INTO configuration (config_name, config_value) 
+        VALUES ('oauth_config', '{"login_oauth_provider":"globus_idp"}'::jsonb);
 INSERT INTO configuration (config_name, config_value) 
 VALUES 
         ('http_config', '{"base_url":"http://localhost:8080/", 
                 "identity_provider_callback_endpoint":"login/callback", 
                 "resource_provider_callback_endpoint":"resources/providers/callback", 
+                "oauth_provider_callback_endpoint":"oauth2/callback", 
                 "token_endpoint":"oauth2/token", "authorization_endpoint":"oauth2/authorization", 
                 "revocation_endpoint":"oauth2/token/revoke", "jwks_endpoint":"jwks.json" }'::jsonb);
-
-
-
-
