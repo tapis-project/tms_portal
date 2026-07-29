@@ -7,7 +7,7 @@ mod routes;
 mod services;
 mod utils;
 
-use crate::config::init_db;
+use crate::config::{init_db, init_logging};
 use crate::routes::{login, oauth, resource, well_known};
 //use axum_extra::extract::cookie::Key;
 use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
@@ -20,6 +20,7 @@ use tower_http::trace::TraceLayer;
 use tracing::instrument;
 use url::Url;
 use models::app_error::AppError;
+use crate::utils::configuration::Configuration;
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -31,11 +32,6 @@ struct AppState {
 #[tokio::main]
 #[instrument]
 async fn main() {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
-
     let database_host = std::env::var("TMS_PORTAL_DB_HOST").expect("TMS_PORTAL_DB_HOST must be set");
     let database_port = std::env::var("TMS_PORTAL_DB_PORT").unwrap_or(String::from("5432"));
     let database_name = std::env::var("TMS_PORTAL_DB_NAME").unwrap_or(String::from("tms_portal_db"));
@@ -59,6 +55,10 @@ async fn main() {
         // key: Key::generate(),
         db_pool: init_db(&database_url_string).await,
     };
+
+    let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
+
+    init_logging(&config.runtime_config).await;
 
     println!("Running sqlx/Postgresql migration");
     sqlx::migrate!("./migrations/")

@@ -10,6 +10,7 @@ const CONFIG_NAME_STATE_KEY: &str = "state_key";
 const CONFIG_NAME_HTTP_CONFIG: &str = "http_config";
 const CONFIG_NAME_OAUTH_CONFIG: &str = "oauth_config";
 const CONFIG_NAME_JWT_CONFIG: &str = "jwt_config";
+const CONFIG_NAME_RUNTIME_CONFIG: &str = "runtime_config";
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StateKey {
     pub kid: String,
@@ -39,6 +40,21 @@ pub struct OAuthConfig {
     pub login_oauth_provider: String,
 }
 impl TryFrom<&PgRow> for OAuthConfig {
+    type Error = Error;
+
+    fn try_from(row: &PgRow) -> Result<Self, Self::Error> {
+        Ok(serde_json::from_value(row.get("config_value"))?)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RuntimeConfig {
+    pub config_directory: String,
+    pub logfile_name: String,
+    // TODO:  put db host and db port in here?
+}
+
+impl TryFrom<&PgRow> for RuntimeConfig {
     type Error = Error;
 
     fn try_from(row: &PgRow) -> Result<Self, Self::Error> {
@@ -144,4 +160,12 @@ pub async fn db_get_jwt_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<Jwt
         .await?;
     dbg!(&row);
     JwtConfig::try_from(&row)
+}
+pub async fn db_get_runtime_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<RuntimeConfig> {
+    let row = query("select config_value from configuration where config_name = $1")
+        .bind(CONFIG_NAME_RUNTIME_CONFIG)
+        .fetch_one(&mut **tx)
+        .await?;
+    dbg!(&row);
+    RuntimeConfig::try_from(&row)
 }

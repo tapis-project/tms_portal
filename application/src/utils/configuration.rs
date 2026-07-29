@@ -1,10 +1,11 @@
 use sqlx::PgPool;
-use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_oauth_config, HttpConfig, JwtConfig, OAuthConfig};
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_oauth_config, db_get_runtime_config, HttpConfig, JwtConfig, OAuthConfig, RuntimeConfig};
 
 pub struct Configuration {
     pub http_config: HttpConfig,
     pub oauth_config: OAuthConfig,
-    pub jwt_config: JwtConfig ,
+    pub jwt_config: JwtConfig,
+    pub runtime_config: RuntimeConfig,
 }
 
 impl Configuration {
@@ -13,11 +14,13 @@ impl Configuration {
         let http_config = db_get_http_config(&mut tx).await?;
         let oauth_config = db_get_oauth_config(&mut tx).await?;
         let jwt_config = db_get_jwt_config(&mut tx).await?;
+        let runtime_config = db_get_runtime_config(&mut tx).await?;
         tx.commit().await?;
         Ok(Configuration {
             http_config,
             oauth_config,
             jwt_config,
+            runtime_config,
         })
     }
 }
