@@ -21,6 +21,7 @@
           self'.packages.postgres-stack
           pkgs.glibcLocalesUtf8
           pkgs.locale
+          pkgs.nodejs_24
         ];
       };
     };
