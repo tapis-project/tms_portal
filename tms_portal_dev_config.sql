@@ -73,3 +73,8 @@ VALUES
                 "oauth_provider_callback_endpoint":"oauth2/callback", 
                 "token_endpoint":"oauth2/token", "authorization_endpoint":"oauth2/authorization", 
                 "revocation_endpoint":"oauth2/token/revoke", "jwks_endpoint":"jwks.json" }'::jsonb);
+
+INSERT INTO configuration (config_name, config_value)
+        VALUES ('runtime_config', '{"config_directory":"application/resources/config", "logging_config_file_name":"log4rs.yml"}'::jsonb);
+
+
