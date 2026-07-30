@@ -40,6 +40,8 @@ USER tms_portal
 # Just copy the jars needed
 WORKDIR /home/tms_portal/app
 COPY --chown=tms_portal:tms_portal ./target/release/tms_portal ./
+RUN mkdir ./config
+COPY --chown=tms_portal:tms_portal ./application/resources/config ./config
 COPY --from=node_build --chown=tms_portal:tms_portal /client/dist/ ./dist/
 RUN chmod +x ./tms_portal
 

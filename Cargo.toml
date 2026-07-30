@@ -1,6 +1,9 @@
 [workspace]
+build = "build.rs"
+resolver = "3"
 members = [
     "application",
     "libraries/tms_lib",
     "libraries/tms_proc_macros"
 ]
+
