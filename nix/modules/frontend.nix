@@ -2,7 +2,7 @@
   options = { };
   config.perSystem = { pkgs, ... }:
     let
-      myPnpm = pkgs.pnpm_11.override { nodejs = pkgs.nodejs-slim_24; };
+      myPnpm = pkgs.pnpm_11.override { nodejs-slim = pkgs.nodejs-slim_24; };
       frontend = pkgs.stdenv.mkDerivation (final: {
         name = "frontend";
         pname = final.name;
