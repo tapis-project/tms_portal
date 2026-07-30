@@ -14,7 +14,7 @@ use axum::http::header::LOCATION;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{debug_handler, Form, Router};
-use axum_extra::extract::cookie::Cookie;
+use axum_extra::extract::cookie::{Cookie, Expiration};
 use axum_extra::extract::CookieJar;
 use axum_extra::headers::authorization::Bearer;
 use axum_extra::headers::Authorization;
@@ -23,10 +23,12 @@ use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
+use chrono::{TimeDelta, Utc};
 use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::models::app_error::AppError;
 use crate::utils::state_utils::{decode_state, encode_state};
+use time::OffsetDateTime;
 
 /*
 This file handles the web part of logging into the TMS portal.  This includes tasks such as:
@@ -162,13 +164,15 @@ pub async fn callback_handler(
     };
 
     // exchange code for token (state validated in handle_callback)
-    let token = handle_callback(
+    let (token, expires_in) = handle_callback(
         &app_state.db_pool,
         &query_params.state,
         &query_params.code,
         &state_cookie.value().to_owned(),
     )
     .await?;
+
+    let expiration_time = Utc::now() + TimeDelta::seconds(expires_in);
 
     // redirect browser back to the post-login page (taken from state - validated in login step).
     let decoded_state:OAuth2State = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
@@ -180,6 +184,7 @@ pub async fn callback_handler(
         .path(ROOT_COOKIE_PATH)
         .http_only(false)
         .secure(true)
+        .expires(OffsetDateTime::from_unix_timestamp(expiration_time.timestamp())?)
         .build();
 
     // Build a 'removal cookie' to remove the state

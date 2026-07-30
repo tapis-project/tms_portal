@@ -1,8 +1,9 @@
 use crate::db::identity_provider_dao;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use crate::db::resource_provider_account_logins::ResourceAccountLogin;
+use crate::db::resource_provider_account_logins::{ResourceAccountLinks, ResourceAccountLogin};
 
 #[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
 pub struct ResourceProvider {
@@ -17,7 +18,8 @@ pub struct ResourceProvider {
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
-pub struct ResourceProviderLink {
+pub struct ResourceProviderLogins {
+    pub id: i32,
     pub tms_identity: String,
     pub resource_provider_uuid: String,
     pub resource_provider_account: String,
@@ -25,9 +27,22 @@ pub struct ResourceProviderLink {
     pub enabled: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+pub struct ResourceProviderLinks {
+    pub id:i32,
+    pub tms_identity:String,
+    pub resource_provider_account:String,
+    pub resource_provider_uuid:String,
+    pub resource_provider_id:String,
+    pub resource_provider_name:String,
+    pub last_login:String,
+    pub enabled:bool,
+}
+
+
 pub type GetResourceProviderResponse = HashSet<ResourceProvider>;
-pub type UnlinkResourceProviderResponse = ResourceProviderLink;
-pub type GetLinkedResourceProviderResponse = HashSet<ResourceProviderLink>;
+pub type UnlinkResourceProviderResponse = ResourceProviderLogins;
+pub type GetLinkedResourceProviderResponse = HashSet<ResourceProviderLinks>;
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ResourceProviderAuthorizeRequest {
     pub provider_id: String,
@@ -47,11 +62,26 @@ impl From<identity_provider_dao::IdentityProvider> for ResourceProvider {
     }
 }
 
-impl From<ResourceAccountLogin> for ResourceProviderLink {
+impl From<ResourceAccountLogin> for ResourceProviderLogins {
     fn from(value: ResourceAccountLogin) -> Self {
-        ResourceProviderLink {
+        ResourceProviderLogins {
+            id: value.id,
             tms_identity: value.tms_identity.clone(),
             resource_provider_uuid: value.resource_provider_uuid.unwrap().to_string(),
+            last_login: value.last_login.to_rfc3339(),
+            enabled: value.enabled,
+            resource_provider_account: value.resource_provider_account,
+        }
+    }
+}
+impl From<ResourceAccountLinks> for ResourceProviderLinks {
+    fn from(value: ResourceAccountLinks) -> Self {
+        ResourceProviderLinks {
+            id: value.id,
+            tms_identity: value.tms_identity.clone(),
+            resource_provider_name: value.resource_provider_name.clone(),
+            resource_provider_id: value.resource_provider_id.clone(),
+            resource_provider_uuid: value.resource_provider_uuid.to_string(),
             last_login: value.last_login.to_rfc3339(),
             enabled: value.enabled,
             resource_provider_account: value.resource_provider_account,

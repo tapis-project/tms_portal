@@ -27,6 +27,7 @@ uuid = { version = "1.22.0", features = ["v4"] }
 rand = {  version = "0.10.2", features = ["thread_rng"] }
 log4rs = "1.4.0"
 log = "0.4.33"
+time = "0.3.54"
 
 # had to run this command to get the build to work.  I guess there are issues with 0.3.48 with cookies library.
 # this will fix it.

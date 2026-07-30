@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap};
+use chrono::{DateTime, Utc};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use crate::utils::configuration::Configuration;
@@ -47,7 +48,7 @@ pub async fn handle_callback(
     state: &String,
     code: &String,
     cookie_state: &String,
-) -> Result<String> {
+) -> Result<(String, i64)> {
     if !cookie_state.eq(state) {
         return Err(Unauthorized("State cookies do not match".to_string()).into());
     }
@@ -67,15 +68,14 @@ pub async fn handle_callback(
 
     let token:AuthorizationCodeResponse =
         get_token_for_provider(&idp, &configuration.http_config.get_identity_provider_callback_url(), code).await?;
-    dbg!(&token);
 
     let mut claims: HashMap<String, Value> = decode_access_token(&idp, &token.id_token).await?;
     // TODO: get iss from config
     claims.insert("iss".to_string(), Value::from("https://tms.tacc.edu/"));
-    dbg!(&claims);
 
     let tms_token_claims = get_tms_token_claims(&configuration, &decoded_state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
-    make_auth_token(db_pool, &tms_token_claims).await
+    let tms_token = make_auth_token(db_pool, &tms_token_claims).await?;
+    Ok((tms_token, tms_token_claims.get_expires_in()?))
 }
 
 pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIResponse, AppError> {
