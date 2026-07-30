@@ -32,6 +32,7 @@ pub type GetLinkedResourceProviderResponse = HashSet<ResourceProviderLink>;
 pub struct ResourceProviderAuthorizeRequest {
     pub provider_id: String,
     pub redirect_url: String,
+    pub state: Option<String>,
 }
 
 impl From<identity_provider_dao::IdentityProvider> for ResourceProvider {

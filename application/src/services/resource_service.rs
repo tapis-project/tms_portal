@@ -103,6 +103,7 @@ pub async fn get_authenticate_redirect_info(
     client_id: &String,
     provider_id: &String,
     redirect_url: &String,
+    client_state: &Option<String>,
 ) -> Result<ResourceProviderAuthorizeInfo, AppError> {
     let mut tx = db_pool.begin().await?;
     let rp = db_get_resource_provider_by_id(&mut tx, provider_id).await
@@ -111,17 +112,23 @@ pub async fn get_authenticate_redirect_info(
         .with_context(||format!("Requested redirect url {1} is not found for this provider id {0}",  provider_id, redirect_url))?;
     tx.commit().await?;
 
+    let mut url = Url::parse(redirect_url)?;
+    if let Some(client_state) = client_state {
+        let mut query_pairs = url.query_pairs_mut();
+        query_pairs.append_pair("state", client_state);
+    }
+
     let oauth_state = OAuth2State {
         tms_identity: tms_identity.clone(),
         client_id: client_id.clone(),
         idp_id: rp.id,
-        redirect_uri: redirect_url.clone(),
+        redirect_uri: url.to_string(),
         exp: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs()
             + 300,
         nonce: generate_nonce(),
-        client_state: None,
+        client_state: client_state.clone(),
     };
 
     let encoded_state = match encode_state(&db_pool, oauth_state).await {

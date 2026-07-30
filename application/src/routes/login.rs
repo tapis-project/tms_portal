@@ -170,20 +170,25 @@ pub async fn callback_handler(
     )
     .await?;
 
-    // Build a new cookie and save it with the TMS token.
-    let c = Cookie::build((TOKEN_COOKIE_NAME, token))
-        .path(ROOT_COOKIE_PATH)
-        .http_only(false)
-        .secure(true)
-        .build();
-    let updated_jar = jar.clone().add(c);
-
     // redirect browser back to the post-login page (taken from state - validated in login step).
     let decoded_state:OAuth2State = decode_state(&app_state.db_pool, &state_cookie.value().to_owned()).await?;
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), decoded_state.redirect_uri)].into_iter());
 
-    let updated_jar = updated_jar.remove(Cookie::from(STATE_COOKIE_NAME));
+    // Build a new cookie and save it with the TMS token.
+    let token_cookie = Cookie::build((TOKEN_COOKIE_NAME, token))
+        .path(ROOT_COOKIE_PATH)
+        .http_only(false)
+        .secure(true)
+        .build();
+
+    // Build a 'removal cookie' to remove the state
+    let removal_cookie = Cookie::build(
+        (STATE_COOKIE_NAME, String::from("")))
+        .path(ROOT_COOKIE_PATH).http_only(true);
+
+    let updated_jar = jar.add(token_cookie)
+        .remove(removal_cookie);
 
     Ok((
         updated_jar,

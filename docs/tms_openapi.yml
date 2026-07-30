@@ -197,19 +197,29 @@ paths:
                 $ref: '#/components/schemas/UnlinkResourceProviderResponse'
 
   "/resources/providers/authorize":
-    post:
+    get:
       tags:
         - Resource
       summary: authorizeWithResourceProvider
       description: Authorization for a resource provider
       security:
         - Bearer: [ ]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResourceProviderAuthorizeRequest'
-
+      parameters:
+        - name: provider_id
+          schema:
+            type: string
+          in: query
+          required: true
+        - name: redirect_url
+          schema:
+            type: string
+          in: query
+          required: true
+        - name: state
+          schema:
+            type: string
+          in: query
+          required: false
       responses:
         "307":
           description: Temporary redirect
@@ -452,14 +462,6 @@ components:
         provider_id:
           type: string
         provider_name:
-          type: string
-
-    ResourceProviderAuthorizeRequest:
-      type: object
-      properties:
-        provider_id:
-          type: string
-        redirect_url:
           type: string
 
     OAuthTokenResponse:

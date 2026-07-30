@@ -20,6 +20,9 @@ use crate::services::oauth2_service::{get_access_token_from_code, authorize_code
 use crate::services::resource_service::AccessToken;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME};
 
+/*
+Routes for this resource.  /oauth2/
+*/
 pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/oauth2/authorize", get(authorize_handler))
@@ -27,6 +30,7 @@ pub async fn router() -> Router<AppState> {
         .route("/oauth2/callback", get(callback_handler))
 }
 
+// Grant Type Enum for tokens request
 #[derive(Eq, PartialEq, Debug, Deserialize)]
 pub enum GrantType {
     #[serde(rename = "authorization_code")]
@@ -35,6 +39,7 @@ pub enum GrantType {
     RefreshToken,
 }
 
+// Convert string to GrantType enum (ignore case)
 impl TryFrom<&str> for GrantType {
     type Error = ServiceError;
 
@@ -47,12 +52,14 @@ impl TryFrom<&str> for GrantType {
     }
 }
 
+// ResponseType enum for authorize endpoint
 #[derive(Eq, PartialEq, Debug, Deserialize)]
 pub enum ResponseType {
     #[serde(rename = "code")]
     Code,
 }
 
+// Convert string to ResponseType enum
 impl TryFrom<&str> for ResponseType {
     type Error = ServiceError;
 
@@ -72,6 +79,7 @@ impl Display for ResponseType {
     }
 }
 
+// params for authorize request
 #[derive(Debug,Deserialize)]
 struct OAuthAuthorizeRequest {
     response_type: ResponseType,
@@ -81,6 +89,7 @@ struct OAuthAuthorizeRequest {
     state: Option<String>,
 }
 
+// params for tokens request
 #[derive(Debug, Deserialize)]
 struct OAuthTokenRequest {
     pub client_id: String,
@@ -91,6 +100,7 @@ struct OAuthTokenRequest {
     pub refresh_token: Option<String>,
 }
 
+// tokens response
 #[derive(Debug, Serialize)]
 struct OAuthTokenResponse {
     pub access_token: AccessToken
@@ -115,7 +125,9 @@ impl From<TokenResponse> for OAuthTokenResponse {
 #[debug_handler]
 async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
                             query_params: Query<OAuthAuthorizeRequest>) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
+    // Match exporession for response type to determine what kind of response is expected
     match query_params.response_type {
+        // code - oauth authorization code flow
         ResponseType::Code => {
             let authorization_result = authorize_code(&app_state.db_pool, &query_params.state, &query_params.client_id, &query_params.redirect_uri).await?;
 
@@ -135,13 +147,18 @@ async fn authorize_handler(State(app_state): State<AppState>, jar:CookieJar,
                     .build(),
             ))
         }
+
+        // TODO:  at some point we probably need to handle refresh tokens
     }
 }
 
+
+// hanlder for tokens request
 #[debug_handler]
 async fn tokens_handler(State(app_state): State<AppState>,
                         Json(oauth_token_request): Json<OAuthTokenRequest>) -> anyhow::Result<TmsResponse<OAuthTokenResponse>, AppError> {
     match oauth_token_request.grant_type {
+        // handle authorization code flow
         GrantType::AuthorizationCode => {
             if let Some(code) = &oauth_token_request.code {
                 let token_response = get_access_token_from_code(&app_state.db_pool, &oauth_token_request.client_id,
@@ -160,27 +177,34 @@ async fn tokens_handler(State(app_state): State<AppState>,
     }
 }
 
+// this should really only be called by the oauth redirect from an oauth provider (like globus, etc)
 #[debug_handler]
 async fn callback_handler(
     State(app_state): State<AppState>,
     jar: CookieJar,
     query_params: Query<AuthCodeQueryParams>,
-) -> anyhow::Result<TmsResponse<()>, AppError> {
+) -> anyhow::Result<(CookieJar, TmsResponse<()>), AppError> {
     // Get the state cookie set during the login process.
     let Some(state_cookie) = jar.get(STATE_COOKIE_NAME) else {
         return Err(Unauthorized("No state cookies were found".to_string()).into());
     };
 
+    // handle the callback logic
     let authorization_callback_result = process_authorization_callback(
         &app_state.db_pool, &state_cookie.value().to_owned(), &query_params.state, &query_params.code).await?;
 
-    // TODO: Clear the internal state cookie!!
+    let removal_cookie = Cookie::build(
+        (STATE_COOKIE_NAME, String::from("")))
+        .path(ROOT_COOKIE_PATH).http_only(true);
+
+    let updated_jar = jar.remove(removal_cookie);
+
     let headers: HashMap<String, String> =
         HashMap::from_iter(vec![(LOCATION.to_string(), authorization_callback_result.location)].into_iter());
 
-    Ok(TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)
+    Ok((updated_jar, TmsResponse::builder(StatusCode::TEMPORARY_REDIRECT)
             .headers(headers)
-            .build())
+            .build()))
 }
 
 

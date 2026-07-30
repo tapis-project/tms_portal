@@ -54,6 +54,7 @@ pub async fn authorize_handler(
         &client_id,
         &query_params.provider_id,
         &query_params.redirect_url,
+        &query_params.state,
     )
     .await?;
 
