@@ -2,7 +2,6 @@ use axum::http::StatusCode;
 use serde::Serialize;
 use std::collections::HashMap;
 use axum::response::{IntoResponse, Response};
-use tms_lib::utils::service_error::ServiceError;
 use crate::utils::app_error::AppError;
 
 pub struct TmsResponseBuilder<T>

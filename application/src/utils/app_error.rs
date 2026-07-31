@@ -1,5 +1,4 @@
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use tms_lib::utils::service_error::ServiceError;
 
 pub struct AppError(anyhow::Error);
