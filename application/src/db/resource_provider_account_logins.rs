@@ -5,18 +5,7 @@ use sqlx::{query, Error, PgTransaction, Row};
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use tms_lib::utils::service_error::ServiceError::BadRequest;
-
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct ResourceAccountLogin {
-    pub id:i32,
-    pub tms_identity:String,
-    pub resource_provider_account:String,
-    pub resource_provider_uuid:Option<Uuid>,
-    pub last_login:DateTime<Utc>,
-    pub enabled:bool,
-    pub created:DateTime<Utc>,
-    pub updated:DateTime<Utc>,
-}
+use crate::obj_model::resources::{ResourceAccountLink, ResourceAccountLogin};
 
 impl From<&PgRow> for ResourceAccountLogin {
     fn from(row: &PgRow) -> Self {
@@ -32,22 +21,9 @@ impl From<&PgRow> for ResourceAccountLogin {
         }
     }
 }
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct ResourceAccountLinks {
-    pub id:i32,
-    pub tms_identity:String,
-    pub resource_provider_account:String,
-    pub resource_provider_uuid:Uuid,
-    pub resource_provider_id:String,
-    pub resource_provider_name:String,
-    pub last_login:DateTime<Utc>,
-    pub enabled:bool,
-    pub created:DateTime<Utc>,
-    pub updated:DateTime<Utc>,
-}
-impl From<&PgRow> for ResourceAccountLinks {
+impl From<&PgRow> for ResourceAccountLink {
     fn from(row: &PgRow) -> Self {
-        ResourceAccountLinks {
+        ResourceAccountLink {
             id:row.get("id"),
             tms_identity:row.get("tms_identity"),
             resource_provider_account:row.get("resource_provider_account"),
@@ -115,7 +91,7 @@ pub async fn db_delete_resource_provider_link<'a>(
 }
 pub async fn db_get_resource_provider_links_for_identity<'a>(
     tx: &mut PgTransaction<'a>, tms_identity: &String
-) -> anyhow::Result<HashSet<ResourceAccountLinks>> {
+) -> anyhow::Result<HashSet<ResourceAccountLink>> {
     let row_result = match query(
         // this select needs all of the fields spelled out because of the join and naming, etc
        "select rpal.id, rpal.tms_identity, rpal.resource_provider_account, rpal.last_login, rpal.enabled,
@@ -130,9 +106,9 @@ pub async fn db_get_resource_provider_links_for_identity<'a>(
         Err(error) => Err(anyhow!(error))
     };
 
-    let mut account_logins: Vec<ResourceAccountLinks> = vec![];
+    let mut account_logins: Vec<ResourceAccountLink> = vec![];
     for row in &row_result? {
-        account_logins.push(ResourceAccountLinks::from(row));
+        account_logins.push(ResourceAccountLink::from(row));
     }
 
     Ok(HashSet::from_iter(account_logins))

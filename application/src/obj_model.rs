@@ -4,3 +4,5 @@ pub mod client;
 pub mod configuration;
 pub mod identity_provider;
 pub mod login;
+pub mod keys;
+pub mod resources;

@@ -7,7 +7,7 @@ use crate::services::login_service::{
 };
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
-use crate::{obj_model, AppState};
+use crate::{AppState};
 use axum::extract::{Query, State};
 use axum::http::header::LOCATION;
 use axum::http::StatusCode;

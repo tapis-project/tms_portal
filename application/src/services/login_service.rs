@@ -1,5 +1,5 @@
 use crate::db::identity_provider_dao::{
-    db_get_login_provider_by_id, db_get_login_providers, IdentityProviderType,
+    db_get_login_provider_by_id, db_get_login_providers,
 };
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::services::globus_token_provider::GlobusTokenProvider;
@@ -14,7 +14,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
-use crate::obj_model::identity_provider::IdentityProvider;
+use crate::obj_model::identity_provider::{IdentityProvider, IdentityProviderType};
 use crate::obj_model::login::WhoAmIResponse;
 use crate::utils::configuration::Configuration;
 use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, TmsTokenClaims};

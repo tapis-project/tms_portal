@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use crate::db::identity_provider_dao::IdentityProviderType;
+use crate::obj_model::identity_provider::IdentityProviderType;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct AuthCodeData {

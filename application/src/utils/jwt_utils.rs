@@ -19,8 +19,8 @@ use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::AppState;
 use crate::db::config_dao::{db_get_jwt_config};
-use crate::db::identity_provider_dao::IdentityProviderType;
 use crate::db::keys_dao::db_get_key_by_id;
+use crate::obj_model::identity_provider::IdentityProviderType;
 use crate::utils::configuration::Configuration;
 
 const DEFAULT_ALGORITHM: &str = "RS256";

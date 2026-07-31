@@ -1,14 +1,11 @@
-use tms_lib::utils::service_error::{ ServiceError, ServiceError::NotFound };
+use tms_lib::utils::service_error::{ ServiceError::BadRequest, ServiceError::NotFound };
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
 use sqlx::{query, Error, PgTransaction, Row};
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::str::FromStr;
 use uuid::Uuid;
-use tms_lib::utils::service_error::ServiceError::BadRequest;
-use crate::obj_model::identity_provider::IdentityProvider;
+use crate::obj_model::identity_provider::{IdentityProvider, IdentityProviderType};
 /*
 Identity providers can be for either resources or for logins.  There's a boolean for
 the support of each - supports_login, supports_resources.  I guess in retrospect it should
@@ -40,41 +37,6 @@ impl TryFrom<&PgRow> for IdentityProvider {
         })
     }
 }
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
-pub enum IdentityProviderType {
-    Globus,
-    TaccTapis,
-}
-
-impl FromStr for IdentityProviderType {
-    type Err = ServiceError;
-
-    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
-        /*
-                match value {
-            v if v.eq_ignore_ascii_case("authorization_code") => Ok(GrantType::AuthorizationCode),
-            v if v.eq_ignore_ascii_case("refresh_token") => Ok(GrantType::RefreshToken),
-            _ => Err(BadRequest(format!("Unknown GrantType {}", value))),
-        }
-
-         */
-        match value {
-            idp_type if idp_type.eq_ignore_ascii_case("globus") => Ok(IdentityProviderType::Globus),
-            idp_type if idp_type.eq_ignore_ascii_case("tacc_tapis") => Ok(IdentityProviderType::TaccTapis),
-            _ => Err(ServiceError::Internal(format!("Unknown provider {0}", value))),
-        }
-    }
-}
-
-impl Display for IdentityProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IdentityProviderType::Globus => write!(f, "globus"),
-            IdentityProviderType::TaccTapis => write!(f, "tacc_tapis"),
-        }
-    }
-}
-
 /*
 Returns the list of identity providers that support login
  */

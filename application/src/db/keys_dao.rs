@@ -1,16 +1,7 @@
-use chrono::{DateTime, Utc};
 use tms_lib::utils::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
-
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct Key {
-    pub kid: String,
-    pub jwt_public_key: String,
-    pub jwt_private_key: String,
-    pub created: DateTime<Utc>,
-    pub updated: DateTime<Utc>,
-}
+use crate::obj_model::keys::Key;
 
 impl From<&PgRow> for Key {
     fn from(row: &PgRow) -> Self {
