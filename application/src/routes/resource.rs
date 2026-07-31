@@ -1,5 +1,4 @@
 use crate::models::tms_response::TmsResponse;
-use crate::models::resource_api::{GetResourceResponse, Resource};
 use crate::services::resource_service::{get_authenticate_redirect_info, get_linked_resource_providers, get_resource_provider_token, get_resource_providers, unlink_resource_provider};
 use tms_lib::utils::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, OAuth2State, CLIENT_ID_TMS};
@@ -18,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
 use crate::models::app_error::AppError;
-use crate::routes::api_obj_model::resources::{ResourceAccountLink, ResourceAccountLogin, ResourceProvider, ResourceProviderAuthorizeRequest};
+use crate::routes::api_obj_model::resources::{Resource, ResourceAccountLink, ResourceAccountLogin, ResourceProvider, ResourceProviderAuthorizeRequest};
 use crate::utils::jwt_utils::JwtValidator;
 use crate::utils::state_utils::decode_state;
 
@@ -127,7 +126,7 @@ pub async fn get_resource_handler(
     State(_app_state): State<AppState>,
     Path((provider_id, provider_account_id)): Path<(String, String)>,
     JwtValidator(_security_context): JwtValidator,
-) -> Result<TmsResponse<GetResourceResponse>, AppError> {
+) -> Result<TmsResponse<HashSet<Resource>>, AppError> {
     // Check that token is valid by getting claims
     let r1 = Resource {
         id: Uuid::new_v4().to_string(),

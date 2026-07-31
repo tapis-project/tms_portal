@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use crate::obj_model;
 
@@ -78,3 +77,14 @@ impl From<&obj_model::identity_provider::IdentityProvider> for ResourceProvider 
         }
     }
 }
+
+#[derive(Debug, Hash, Serialize, Clone, PartialEq, Eq)]
+pub struct Resource {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub provider_id: String,
+    pub provider_account_id: String,
+    pub provider_name: String,
+}
+
