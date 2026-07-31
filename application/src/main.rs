@@ -2,7 +2,6 @@ extern crate core;
 
 mod config;
 mod db;
-mod models;
 mod routes;
 mod services;
 mod utils;
@@ -20,7 +19,7 @@ use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::instrument;
 use url::Url;
-use models::app_error::AppError;
+use crate::utils::app_error::AppError;
 use crate::utils::configuration::Configuration;
 
 #[derive(Debug, Clone)]

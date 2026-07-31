@@ -14,13 +14,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use uuid::{Uuid};
-use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::AppState;
 use crate::db::config_dao::{db_get_jwt_config};
 use crate::db::keys_dao::db_get_key_by_id;
 use crate::obj_model::identity_provider::IdentityProviderType;
+use crate::utils::app_error::AppError;
 use crate::utils::configuration::Configuration;
 
 const DEFAULT_ALGORITHM: &str = "RS256";

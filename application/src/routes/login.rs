@@ -1,7 +1,6 @@
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
 use crate::db::identity_provider_dao::db_get_login_provider_by_id;
-use crate::models::tms_response::TmsResponse;
 use crate::services::login_service::{
     get_identity_providers, handle_callback, whoami,
 };
@@ -25,10 +24,11 @@ use std::time::SystemTime;
 use chrono::{TimeDelta, Utc};
 use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
-use crate::models::app_error::AppError;
 use crate::utils::state_utils::{decode_state, encode_state};
 use time::OffsetDateTime;
 use crate::routes::api_obj_model::login::{AuthorizeByIdpRequest, IdentityProvider, WhoAmIResponse};
+use crate::routes::api_obj_model::tms_response::TmsResponse;
+use crate::utils::app_error::AppError;
 /*
 This file handles the web part of logging into the TMS portal.  This includes tasks such as:
 - getting the list of login identity providers

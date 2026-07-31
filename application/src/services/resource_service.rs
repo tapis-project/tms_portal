@@ -14,12 +14,12 @@ use std::time::SystemTime;
 use chrono::{Utc};
 use serde_json::Value;
 use url::Url;
-use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login, db_delete_resource_provider_link, db_get_resource_provider_links_for_identity};
 use crate::obj_model::identity_provider::ResourceProvider;
 use crate::obj_model::resources::{ResourceAccountLink, ResourceAccountLogin};
+use crate::utils::app_error::AppError;
 use crate::utils::jwt_utils::{SecurityContext};
 use crate::utils::state_utils::encode_state;
 

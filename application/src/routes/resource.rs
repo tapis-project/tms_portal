@@ -1,4 +1,3 @@
-use crate::models::tms_response::TmsResponse;
 use crate::services::resource_service::{get_authenticate_redirect_info, get_linked_resource_providers, get_resource_provider_token, get_resource_providers, unlink_resource_provider};
 use tms_lib::utils::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, OAuth2State, CLIENT_ID_TMS};
@@ -16,8 +15,9 @@ use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
-use crate::models::app_error::AppError;
 use crate::routes::api_obj_model::resources::{Resource, ResourceAccountLink, ResourceAccountLogin, ResourceProvider, ResourceProviderAuthorizeRequest};
+use crate::routes::api_obj_model::tms_response::TmsResponse;
+use crate::utils::app_error::AppError;
 use crate::utils::jwt_utils::JwtValidator;
 use crate::utils::state_utils::decode_state;
 
