@@ -151,23 +151,17 @@ pub async fn db_get_resource_providers<'a>(
     let rp_query_result = match linked_only {
         true => {
             query(
-                "select ip.uuid, ip.id, ip.name, ip.client_id, ip.client_secret,
-                     ip.identity_redirect_url, ip.oauth2_token_url, ip.oauth2_jwks_url,
-                     ip.oidc_user_info_url, ip.oauth2_public_key, ip.scope, ip.provider_type,
-                     ip.supports_login, ip.supports_resources, ip.created, ip.updated
-                     from identity_providers as ip INNER JOIN resource_provider_account_logins
-                     AS rpal ON ip.uuid = rpal.resource_provider_uuid where supports_resources = true
-                     and tms_identity = $1",
+                "select * from identity_providers as ip
+                      INNER JOIN resource_provider_account_logins
+                      AS rpal ON ip.uuid = rpal.resource_provider_uuid where supports_resources = true
+                      and tms_identity = $1",
             ).bind(tms_identity)
                 .fetch_all(&mut **tx)
                 .await?
         }
         false => {
             query(
-                "select uuid, id, name, client_id, client_secret, identity_redirect_url,
-                     oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
-                     oauth2_public_key, scope, provider_type,
-                     supports_login, supports_resources, created, updated from identity_providers
+                "select * from identity_providers
                      where supports_resources = true",
             )
                 .fetch_all(&mut **tx)

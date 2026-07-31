@@ -166,7 +166,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLinkedResourceProviderResponse'
 
-  "/resources/providers/links/rp_uuid/{resource_provider_id}/rp_account_id/{resource_provider_account_id}":
+  "/resources/providers/links/{resource_provider_link_id}":
     delete:
       tags:
         - Resource
@@ -175,14 +175,8 @@ paths:
       security:
         - Bearer: [ ]
       parameters:
-        - name: resource_provider_uuid
-          description: The uuid of the resource provider to remove the link for
-          required: true
-          schema:
-            type: string
-          in: path
-        - name: resource_provider_account_id
-          description: The uuid of the resource provider account id to remove the link for
+        - name: resource_provider_link_id
+          description: The id of the resource provider link (as returned by getLinks)
           required: true
           schema:
             type: string
@@ -409,7 +403,7 @@ components:
         status:
           type: string
         result:
-          $ref: '#/components/schemas/ResourceProviderLink'
+          $ref: '#/components/schemas/ResourceProviderLogins'
 
     TmsCallbackResponse:
       type: object
@@ -440,6 +434,12 @@ components:
       properties:
         tms_identity:
           type: string
+        id:
+          type: number
+        resource_provider_id:
+          type: string
+        resource_provider_name:
+          type: string
         resource_provider_uuid:
           type: string
         resource_provider_account:
@@ -448,6 +448,23 @@ components:
           type: string
         enabled:
           type: boolean
+
+    ResourceProviderLogins:
+      type: object
+      properties:
+        tms_identity:
+          type: string
+        id:
+          type: number
+        resource_provider_uuid:
+          type: string
+        resource_provider_account:
+          type: string
+        last_login:
+          type: string
+        enabled:
+          type: boolean
+
 
     Resource:
       type: object

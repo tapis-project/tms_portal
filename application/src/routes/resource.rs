@@ -28,7 +28,7 @@ pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/resources/providers", get(list_resource_provider_handler))
         .route("/resources/{provider_id}/{provider_account_id}", get(get_resource_handler))
-        .route("/resources/providers/links/rp_uuid/{resource_provider_uuid}/rp_account_id/{resource_provider_account_id}", delete(unlink_resource_provider_handler))
+        .route("/resources/providers/links/{resource_provider_link_id}", delete(unlink_resource_provider_handler))
         .route("/resources/providers/links", get(get_linked_resource_provider_handler))
         .route("/resources/providers/authorize", get(authorize_handler))
         .route(
@@ -104,12 +104,11 @@ pub async fn list_resource_provider_handler(
 #[debug_handler]
 pub async fn unlink_resource_provider_handler (
     State(app_state): State<AppState>,
-    Path((resource_provider_uuid, resource_provider_account_id)):Path<(String, String)>,
+    Path((resource_provider_link_id)):Path<(i64)>,
     JwtValidator(security_context): JwtValidator,
 ) -> Result<TmsResponse<UnlinkResourceProviderResponse>, AppError> {
-    let resource_provider_uuid = Uuid::parse_str(resource_provider_uuid.as_str())?;
     let result = unlink_resource_provider(&security_context, &app_state.db_pool,
-                                          &resource_provider_uuid, &resource_provider_account_id).await?;
+                                          &resource_provider_link_id).await?;
     Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
 }
 #[debug_handler]

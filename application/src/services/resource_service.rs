@@ -71,16 +71,10 @@ pub async fn get_resource_providers(security_context:&SecurityContext, db_pool: 
     Ok(resource_provider_result)
 }
 pub async fn unlink_resource_provider(security_context:&SecurityContext, db_pool: &PgPool,
-                                      resource_provider_uuid: &Uuid, account_id: &String) -> Result<UnlinkResourceProviderResponse> {
+                                      resource_provider_link_id: &i64) -> Result<UnlinkResourceProviderResponse> {
     let mut tx = db_pool.begin().await?;
-    let resource_provider = db_get_resource_provider_by_uuid(&mut tx, resource_provider_uuid).await?;
-    let (Some(rp_uuid)) = resource_provider.uuid else {
-        error!("Unable to get uuid from db - this is a NOT NULL field, so this should never come up.");
-        return Err(Internal("Unable to get uuid for provider".to_string()).into());
-    };
-
     let rps =
-        db_delete_resource_provider_link(&mut tx, &security_context.tms_identity, &rp_uuid, &account_id).await?;
+        db_delete_resource_provider_link(&mut tx, &security_context.tms_identity, &resource_provider_link_id).await?;
     tx.commit().await?;
 
     Ok(rps.into())
