@@ -96,6 +96,8 @@ function ProviderCardList() {
 
 function App() {
   const { data: isAuthenticated } = useAuth()
+  const redirect_uri: string =
+    import.meta.env.VITE_REDIRECT_URI ?? "https://tms-auth-service.tacc.cloud/"
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -113,7 +115,7 @@ function App() {
           <div>
             Please{" "}
             <a
-              href="/login?idp_id=globus_idp&redirect_uri=https://tms-auth-service.tacc.cloud/"
+              href={`"/login?idp_id=globus_idp&redirect_uri=${redirect_uri}"`}
               className="text-primary underline-offset-4 hover:underline"
             >
               log in
