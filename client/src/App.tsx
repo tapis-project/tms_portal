@@ -115,7 +115,7 @@ function App() {
           <div>
             Please{" "}
             <a
-              href={`"/login?idp_id=globus_idp&redirect_uri=${redirect_uri}"`}
+              href={`/login?idp_id=globus_idp&redirect_uri=${redirect_uri}`}
               className="text-primary underline-offset-4 hover:underline"
             >
               log in
