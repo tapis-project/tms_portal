@@ -1,23 +1,12 @@
 use anyhow::anyhow;
-use chrono::{DateTime, TimeDelta, Utc};
-use serde_json::{to_value, Value};
+use chrono::{TimeDelta, Utc};
+use serde_json::{to_value};
 use sqlx::postgres::PgRow;
 use sqlx::{query, Error, PgTransaction, Row};
 use tms_lib::utils::service_error::ServiceError::{BadRequest};
 use crate::db::identity_provider_dao::{IdentityProviderType};
+use crate::obj_model::auth_code_data::AuthCodeData;
 use crate::utils::jwt_utils::TmsTokenClaims;
-
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct AuthCodeData {
-    pub auth_code: String,
-    pub client_id: String,
-    pub redirect_uri: String,
-    pub idp_id: String,
-    pub idp_type: IdentityProviderType,
-    pub claims: Value,
-    pub created: DateTime<Utc>,
-    pub updated: DateTime<Utc>,
-}
 
 impl TryFrom<&PgRow> for AuthCodeData {
     type Error = anyhow::Error;

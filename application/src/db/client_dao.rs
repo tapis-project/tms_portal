@@ -1,16 +1,7 @@
-use chrono::{DateTime, Utc};
 use tms_lib::utils::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
-
-#[derive(Debug)]
-pub struct Client {
-    pub id: String,
-    pub secret: String,
-    pub name: String,
-    pub created: DateTime<Utc>,
-    pub updated: DateTime<Utc>,
-}
+use crate::obj_model::client::Client;
 
 impl From<&PgRow> for Client {
     fn from(row: &PgRow) -> Self {

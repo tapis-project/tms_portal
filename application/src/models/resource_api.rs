@@ -1,9 +1,7 @@
-use crate::db::identity_provider_dao;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use crate::db::resource_provider_account_logins::{ResourceAccountLinks, ResourceAccountLogin};
+use crate::obj_model;
 
 #[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
 pub struct ResourceProvider {
@@ -50,8 +48,8 @@ pub struct ResourceProviderAuthorizeRequest {
     pub state: Option<String>,
 }
 
-impl From<identity_provider_dao::IdentityProvider> for ResourceProvider {
-    fn from(value: identity_provider_dao::IdentityProvider) -> Self {
+impl From<obj_model::identity_provider::IdentityProvider> for ResourceProvider {
+    fn from(value: obj_model::identity_provider::IdentityProvider) -> Self {
         ResourceProvider {
             id: value.id,
             name: value.name,

@@ -14,7 +14,7 @@ use axum::http::header::LOCATION;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{debug_handler, Form, Router};
-use axum_extra::extract::cookie::{Cookie, Expiration};
+use axum_extra::extract::cookie::{Cookie};
 use axum_extra::extract::CookieJar;
 use axum_extra::headers::authorization::Bearer;
 use axum_extra::headers::Authorization;

@@ -428,6 +428,10 @@ components:
           type: string
         userInfoUrl:
           type: string
+        created:
+          type: string
+        updated:
+          type: string
 
     ResourceProviderLink:
       type: object

@@ -1,7 +1,7 @@
-use crate::db::identity_provider_dao;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
+use crate::obj_model;
 
 #[derive(Debug, Deserialize)]
 pub struct AuthorizeByIdpRequest {
@@ -36,8 +36,8 @@ pub struct IdentityProvider {
 
 pub type GetIdentityProviderResponse = HashSet<IdentityProvider>;
 
-impl From<identity_provider_dao::IdentityProvider> for IdentityProvider {
-    fn from(value: identity_provider_dao::IdentityProvider) -> Self {
+impl From<obj_model::identity_provider::IdentityProvider> for IdentityProvider {
+    fn from(value: obj_model::identity_provider::IdentityProvider) -> Self {
         IdentityProvider {
             id: value.id,
             name: value.name,

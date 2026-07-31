@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap};
-use chrono::{DateTime, Utc};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use crate::utils::configuration::Configuration;

@@ -6,6 +6,7 @@ mod models;
 mod routes;
 mod services;
 mod utils;
+mod obj_model;
 
 use crate::config::{init_db, init_logging};
 use crate::routes::{login, oauth, resource, well_known};

@@ -104,7 +104,7 @@ pub async fn list_resource_provider_handler(
 #[debug_handler]
 pub async fn unlink_resource_provider_handler (
     State(app_state): State<AppState>,
-    Path((resource_provider_link_id)):Path<(i64)>,
+    Path(resource_provider_link_id):Path<i64>,
     JwtValidator(security_context): JwtValidator,
 ) -> Result<TmsResponse<UnlinkResourceProviderResponse>, AppError> {
     let result = unlink_resource_provider(&security_context, &app_state.db_pool,

@@ -5,7 +5,6 @@ use sqlx::{query, Error, PgTransaction, Row};
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use tms_lib::utils::service_error::ServiceError::BadRequest;
-use crate::db::identity_provider_dao::IdentityProvider;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ResourceAccountLogin {

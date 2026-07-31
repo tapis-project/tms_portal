@@ -1,6 +1,6 @@
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
-use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_provider_by_uuid, db_get_resource_providers};
+use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_providers};
 use crate::models::resource_api::{GetLinkedResourceProviderResponse, GetResourceProviderResponse, UnlinkResourceProviderResponse};
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal};
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
@@ -12,10 +12,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::time::SystemTime;
 use chrono::{Utc};
-use log::error;
 use serde_json::Value;
 use url::Url;
-use uuid::Uuid;
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::oauth_utils::generate_nonce;

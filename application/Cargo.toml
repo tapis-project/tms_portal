@@ -17,17 +17,18 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149", features = ["default", "arbitrary_precision"] }
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
 tms_lib = { path = "../libraries/tms_lib"}
-tms_proc_macros = { path = "../libraries/tms_proc_macros"}
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["trace", "fs"] }
 tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
 url = "2.5.8"
 uuid = { version = "1.22.0", features = ["v4"] }
 rand = {  version = "0.10.2", features = ["thread_rng"] }
 log4rs = "1.4.0"
 log = "0.4.33"
 time = "0.3.54"
+
+#tms_proc_macros = { path = "../libraries/tms_proc_macros"}
+#tracing-subscriber = "0.3.23"
 
 # had to run this command to get the build to work.  I guess there are issues with 0.3.48 with cookies library.
 # this will fix it.
