@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashSet;
 use crate::obj_model;
 
@@ -8,18 +7,6 @@ pub struct AuthorizeByIdpRequest {
     pub idp_id: String,
     pub redirect_uri: String,
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WhoAmIResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<Value>,
-    pub username: Value,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "idpDisplayName")]
-    pub idp_display_name: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization: Option<Value>,
-}
-
 #[derive(Debug, Serialize, Hash, Eq, PartialEq, Clone)]
 pub struct IdentityProvider {
     pub id: String,

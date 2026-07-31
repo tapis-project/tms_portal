@@ -2,7 +2,7 @@ use crate::db::identity_provider_dao::{
     db_get_login_provider_by_id, db_get_login_providers, IdentityProviderType,
 };
 use crate::db::keys_dao::db_get_key_by_id;
-use crate::models::login_api::{GetIdentityProviderResponse, WhoAmIResponse};
+use crate::models::login_api::{GetIdentityProviderResponse};
 use crate::services::globus_token_provider::GlobusTokenProvider;
 use tms_lib::utils::service_error::{ ServiceError, ServiceError::{BadRequest, Unauthorized}};
 use crate::services::token_provider::TokenProvider;
@@ -15,6 +15,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap};
 use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
+use crate::obj_model::login::WhoAmIResponse;
 use crate::utils::configuration::Configuration;
 use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, TmsTokenClaims};
 use crate::utils::state_utils::decode_state;
