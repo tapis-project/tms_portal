@@ -11,7 +11,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-import { useListProviders, useListResources } from "./tms-hooks"
+import {
+  useListProviderLinks,
+  useListProviders,
+  useListResources,
+} from "./tms-hooks"
 //import { ResourceCard } from "./components/tms-ui/ResourceCard"
 import { ProviderCard } from "./components/tms-ui/ProviderCard"
 import { UserMenu } from "./components/tms-ui/UserMenu"
@@ -86,7 +90,7 @@ function LinkIdentityModal() {
 }
 
 function ProviderCardList() {
-  const { data: providerList } = useListProviders({ linkedOnly: true })
+  const { data: providerList } = useListProviderLinks()
 
   if (!providerList) return null
 
@@ -105,7 +109,7 @@ function ProviderCardList() {
   return providerList.map((provider) => (
     <ProviderCard key={`${provider.id}`} provider={provider}>
       {/* <ResourceCardGrid userId={"ok"} providerId={provider.id} />  */}
-      <ResourceCardSelector providerId={provider.id} />
+      <ResourceCardSelector providerId={provider.resource_provider_id} />
     </ProviderCard>
   ))
 }

@@ -42,6 +42,22 @@ const resourceStubs: Record<string, string>[] = [
   },
 ]
 
+const providerLinksStub = {
+  status: "200 OK",
+  result: [
+    {
+      id: 8,
+      tms_identity: "dbddf86d-a94e-4dc8-aa3e-19fe8a58fa7f@globus_idp",
+      resource_provider_account: "jarosenb@tacc",
+      resource_provider_uuid: "079164ad-daa9-4790-846d-73049848c41f",
+      resource_provider_id: "tacc",
+      resource_provider_name: "TACC Resource Provider",
+      last_login: "2026-08-05T20:00:10.326842+00:00",
+      enabled: false,
+    },
+  ],
+}
+
 export const handlers = [
   http.get("/login/whoami", () => {
     return HttpResponse.json({ result: whoamiStub })
@@ -49,6 +65,12 @@ export const handlers = [
 
   http.get("/resources/providers", () => {
     return HttpResponse.json({ result: providerStubs })
+  }),
+  http.get("/resources/providers/links", () => {
+    return HttpResponse.json(providerLinksStub)
+  }),
+  http.delete<{ id: string }>("/resources/providers/links/:id", () => {
+    return HttpResponse.json(providerLinksStub)
   }),
 
   http.get<{ provider: string; userId: string }>(
