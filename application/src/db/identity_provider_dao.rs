@@ -93,7 +93,7 @@ pub async fn db_get_resource_providers<'a>(
     let rp_query_result = match linked_only {
         true => {
             query(
-                "select * from identity_providers as ip
+                "select ip.* from identity_providers as ip
                       INNER JOIN resource_provider_account_logins
                       AS rpal ON ip.uuid = rpal.resource_provider_uuid where supports_resources = true
                       and tms_identity = $1",
