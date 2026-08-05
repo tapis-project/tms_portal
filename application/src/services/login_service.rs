@@ -13,6 +13,7 @@ use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
+use crate::db::issued_tokens_dao::db_revoke_token;
 use crate::obj_model::identity_provider::{IdentityProvider, IdentityProviderType};
 use crate::obj_model::login::WhoAmIResponse;
 use crate::utils::app_error::AppError;
@@ -76,6 +77,13 @@ pub async fn handle_callback(
     let tms_token_claims = get_tms_token_claims(&configuration, &decoded_state.client_id, &idp.id, &idp.identity_provider_type, &claims).await?;
     let tms_token = make_auth_token(db_pool, &tms_token_claims).await?;
     Ok((tms_token, tms_token_claims.get_expires_in()?))
+}
+
+pub async fn logout(db_pool: &PgPool, token:&String) -> Result<()> {
+    let mut tx = db_pool.begin().await?;
+    db_revoke_token(&mut tx, &token).await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 pub async fn whoami(db_pool: &PgPool, token: &String) -> anyhow::Result<WhoAmIResponse, AppError> {

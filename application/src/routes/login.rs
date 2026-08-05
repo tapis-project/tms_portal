@@ -1,9 +1,7 @@
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
 use crate::db::identity_provider_dao::db_get_login_provider_by_id;
-use crate::services::login_service::{
-    get_identity_providers, handle_callback, whoami,
-};
+use crate::services::login_service::{get_identity_providers, handle_callback, logout, whoami};
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal, Unauthorized};
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, OAuth2State, CLIENT_ID_TMS, ROOT_COOKIE_PATH, STATE_COOKIE_NAME, TOKEN_COOKIE_NAME};
 use crate::{AppState};
@@ -14,9 +12,6 @@ use axum::routing::{get, post};
 use axum::{debug_handler, Form, Router};
 use axum_extra::extract::cookie::{Cookie};
 use axum_extra::extract::CookieJar;
-use axum_extra::headers::authorization::Bearer;
-use axum_extra::headers::Authorization;
-use axum_extra::TypedHeader;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use std::collections::{HashMap, HashSet};
@@ -29,6 +24,7 @@ use time::OffsetDateTime;
 use crate::routes::api_obj_model::login::{AuthorizeByIdpRequest, IdentityProvider, WhoAmIResponse};
 use crate::routes::api_obj_model::tms_response::TmsResponse;
 use crate::utils::app_error::AppError;
+use crate::utils::jwt_utils::JwtValidator;
 /*
 This file handles the web part of logging into the TMS portal.  This includes tasks such as:
 - getting the list of login identity providers
@@ -41,6 +37,7 @@ pub async fn router() -> Router<AppState> {
     Router::new()
         .route("/login", post(login_handler))
         .route("/login", get(login_handler))
+        .route("/logout", get(logout_handler))
         .route("/login/whoami", get(whoami_handler))
         .route("/login/callback", get(callback_handler))
         .route("/login/idps", get(get_idp_handler))
@@ -59,9 +56,9 @@ pub async fn login_handler(
     form_data: Form<AuthorizeByIdpRequest>,
 ) -> Result<(CookieJar, TmsResponse<()>), AppError> {
     // Portal login will always be the tms client id
-    let client_id = String::from(CLIENT_ID_TMS);
     let mut tx = app_state.db_pool.begin().await?;
     let idp = db_get_login_provider_by_id(&mut tx, &form_data.idp_id).await;
+    let client_id = String::from(CLIENT_ID_TMS);
 
     // we will not use this value, but we need to make sure this redirect uri is in the database.
     let _ = db_get_allowed_redirect(&mut tx, &client_id, &form_data.redirect_uri).await?;
@@ -131,16 +128,36 @@ pub async fn login_handler(
     }
 }
 
+#[debug_handler]
+pub async fn logout_handler(State(app_state): State<AppState>,
+                      JwtValidator(security_context): JwtValidator,
+                      jar: CookieJar,
+) -> anyhow::Result<(CookieJar, TmsResponse<String>), AppError> {
+    logout(&app_state.db_pool, &security_context.token).await?;
+
+    // remove the token cookie
+    let updated_jar = jar.remove(Cookie::build(
+        (TOKEN_COOKIE_NAME, String::from("")))
+        .path(ROOT_COOKIE_PATH));
+
+    Ok((
+        updated_jar,
+        TmsResponse::builder(StatusCode::OK)
+            .entity("Successfully Logged out".to_string())
+            .build()
+    ))
+}
+
 /*
 This method requires the user to be logged in (token in Authorization: Bearer token).
 Information can be returned back from the verified/valid token such as the user's name.
  */
+#[debug_handler]
 pub async fn whoami_handler(
     State(app_state): State<AppState>,
-    TypedHeader(bearer): TypedHeader<Authorization<Bearer>>,
+    JwtValidator(security_context): JwtValidator,
 ) -> anyhow::Result<TmsResponse<WhoAmIResponse>, AppError> {
-    let token = &String::from(bearer.token());
-    let whoami_response = whoami(&app_state.db_pool, token).await?;
+    let whoami_response = whoami(&app_state.db_pool, &security_context.token).await?;
     Ok(TmsResponse::builder(StatusCode::OK)
         .entity(whoami_response.into())
         .build())

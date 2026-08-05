@@ -37,6 +37,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TmsErrorResponse'
+  "/logout":
+    post:
+      tags:
+        - Login
+      summary: Logout
+      description: Log out of TMS Portal
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsLogoutResponse'
 
   "/login/whoami":
     get:
@@ -361,6 +374,14 @@ components:
         idp_id:
           type: string
         redirect_uri:
+          type: string
+          
+    TmsLogoutResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
           type: string
 
     ListLoginIdpResponse:
