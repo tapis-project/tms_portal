@@ -1,4 +1,5 @@
-import { Plus } from "lucide-react"
+import React from "react"
+import { Plus, Server } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,12 +12,14 @@ import {
 } from "@/components/ui/dialog"
 
 import { useListProviders, useListResources } from "./tms-hooks"
-import { ResourceCard } from "./components/tms-ui/ResourceCard"
+//import { ResourceCard } from "./components/tms-ui/ResourceCard"
 import { ProviderCard } from "./components/tms-ui/ProviderCard"
 import { UserMenu } from "./components/tms-ui/UserMenu"
 import { useAuth } from "./tms-hooks/useAuth"
 import { Separator } from "./components/ui/separator"
+//import { ProviderWizard } from "./components/tms-ui/ProviderWizard"
 
+/*
 function ResourceCardGrid({
   userId,
   providerId,
@@ -28,7 +31,6 @@ function ResourceCardGrid({
   if (!ResourceList) return null
   return (
     <>
-      {/* Grids items will stack vertically in order to  */}
       <div className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
         {ResourceList.map((resource) => (
           <ResourceCard resource={resource} key={resource.id} />
@@ -37,6 +39,7 @@ function ResourceCardGrid({
     </>
   )
 }
+*/
 
 function LinkIdentityModal() {
   const { data: providerList } = useListProviders()
@@ -89,9 +92,77 @@ function ProviderCardList() {
 
   return providerList.map((provider) => (
     <ProviderCard key={`${provider.id}`} provider={provider}>
-      <ResourceCardGrid userId={"ok"} providerId={provider.id} />
+      {/* <ResourceCardGrid userId={"ok"} providerId={provider.id} />  */}
+      <ResourceCardSelector providerId={provider.id} />
     </ProviderCard>
   ))
+}
+
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field"
+
+function ResourceCardSelector({ providerId }: { providerId: string }) {
+  const { data: resourceList } = useListResources({ providerId, userId: "ok" })
+  const [selectedResources, setSelectedResources] = React.useState<Set<string>>(
+    new Set()
+  )
+  React.useEffect(
+    () => setSelectedResources(new Set(resourceList?.map((r) => r.id))),
+    [resourceList]
+  )
+
+  if (!resourceList) return null
+
+  function handleSelect(id: string, checked: boolean) {
+    const newSelectedResources = new Set(selectedResources)
+    if (!checked) {
+      newSelectedResources.delete(id)
+    } else {
+      newSelectedResources.add(id)
+    }
+    setSelectedResources(newSelectedResources)
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <FieldGroup className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
+        {resourceList.map((resource) => (
+          <FieldLabel key={resource.id}>
+            <Field
+              orientation="horizontal"
+              onChange={() => console.log("change fired")}
+            >
+              <Checkbox
+                id="toggle-checkbox-2"
+                name="toggle-checkbox-2"
+                checked={selectedResources.has(resource.id)}
+                onCheckedChange={(e: boolean) => handleSelect(resource.id, e)}
+              />
+              <FieldContent>
+                <FieldTitle className="text-xl">
+                  <Server className="mr-1 inline size-5" />
+                  <span className="inline-block align-middle break-all">
+                    {resource.name}
+                  </span>{" "}
+                </FieldTitle>
+                <FieldDescription>{resource.description}</FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+        ))}
+      </FieldGroup>
+      <Button asChild>
+        <a href="#">Confirm Delegation and Return to Science Gateway</a>
+      </Button>
+    </div>
+  )
 }
 
 function App() {
@@ -127,6 +198,7 @@ function App() {
               Linked Identities <LinkIdentityModal />
             </h2>
             <ProviderCardList></ProviderCardList>
+            {/* <ProviderWizard /> */}
           </>
         )}
       </main>
