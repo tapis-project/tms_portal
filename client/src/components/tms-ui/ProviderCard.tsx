@@ -5,10 +5,11 @@ import {
   //CardDescription,
   CardContent,
   CardAction,
+  CardDescription,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
-import { Building2, Unplug } from "lucide-react"
+import { Building2, Unplug, UserRound } from "lucide-react"
 import { useUnlinkProvider, type ProviderLink } from "@/tms-hooks"
 
 export function ProviderCard({
@@ -19,13 +20,6 @@ export function ProviderCard({
   return (
     <Card className="border-border/60 shadow-sm">
       <CardHeader>
-        {/* {identity && (
-          <CardTitle className="flex min-w-0 gap-2">
-            <UserRound />
-            <span className="break-all">{identity}</span>
-          </CardTitle>
-        )}
-          */}
         <CardTitle className="min-w-0 gap-2">
           <p className="flex items-center gap-1">
             <Building2 className="mr-1 inline" />
@@ -33,6 +27,12 @@ export function ProviderCard({
           </p>
           {/* <p>{provider.description}</p> */}
         </CardTitle>
+        <CardDescription className="flex min-w-0 gap-2">
+          <UserRound />
+          <span className="break-all">
+            {provider.resource_provider_account}
+          </span>
+        </CardDescription>
 
         <CardAction>
           <Button variant="destructive" onClick={() => mutate()}>
