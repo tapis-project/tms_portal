@@ -56,15 +56,16 @@ async fn main() {
         db_pool: init_db(&database_url_string).await,
     };
 
-    let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
-
-    init_logging(&config.runtime_config).await;
-
     println!("Running sqlx/Postgresql migration");
     sqlx::migrate!("./migrations/")
         .run(&state.db_pool)
         .await
         .unwrap();
+
+    let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
+
+    init_logging(&config.runtime_config).await;
+
 
     let port = 8080;
 
