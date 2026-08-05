@@ -1,5 +1,5 @@
 import React from "react"
-import { Plus, Server } from "lucide-react"
+import { InfoIcon, Plus, Server } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -47,7 +47,7 @@ function LinkIdentityModal() {
     <Dialog>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          <Plus /> Add Identity
+          <Plus /> Add Provider
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
@@ -90,6 +90,18 @@ function ProviderCardList() {
 
   if (!providerList) return null
 
+  if (!providerList.length)
+    return (
+      <Alert>
+        <InfoIcon />
+        <AlertTitle>No Linked Providers</AlertTitle>
+        <AlertDescription>
+          We have no linked providers on record for your account. Please click
+          "Add Provider" above to begin the account linking process.
+        </AlertDescription>
+      </Alert>
+    )
+
   return providerList.map((provider) => (
     <ProviderCard key={`${provider.id}`} provider={provider}>
       {/* <ResourceCardGrid userId={"ok"} providerId={provider.id} />  */}
@@ -107,6 +119,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field"
+import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert"
 
 function ResourceCardSelector({ providerId }: { providerId: string }) {
   const { data: resourceList } = useListResources({ providerId, userId: "ok" })
@@ -195,7 +208,7 @@ function App() {
         {!!isAuthenticated && (
           <>
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              Linked Identities <LinkIdentityModal />
+              Linked Providers <LinkIdentityModal />
             </h2>
             <ProviderCardList></ProviderCardList>
             {/* <ProviderWizard /> */}
