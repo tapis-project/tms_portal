@@ -27,7 +27,7 @@ export const useListProviders = ({
   linkedOnly,
 }: { linkedOnly?: boolean } = {}) => {
   return useQuery({
-    queryKey: ["providers"],
+    queryKey: ["providers", linkedOnly],
     queryFn: () => fetchProviders({ linkedOnly }),
   })
 }
