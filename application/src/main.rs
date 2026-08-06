@@ -7,6 +7,7 @@ mod services;
 mod utils;
 mod obj_model;
 
+use anyhow::Context;
 use crate::config::{init_db, init_logging};
 use crate::routes::{login, oauth, resource, well_known};
 //use axum_extra::extract::cookie::Key;
@@ -14,11 +15,17 @@ use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
 use axum::handler::HandlerWithoutStateExt;
 use axum::response::IntoResponse;
 use axum::Router;
+use chrono::{TimeDelta, Utc};
+use http::Request;
+use log::error;
 use sqlx::PgPool;
+use tokio::spawn;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tracing::instrument;
+use tracing::{instrument, Level};
 use url::Url;
+use uuid::Uuid;
+use crate::db::issued_tokens_dao::db_cleanup_tokens;
 use crate::utils::app_error::AppError;
 use crate::utils::configuration::Configuration;
 
@@ -65,6 +72,36 @@ async fn main() {
     let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
 
     init_logging(&config.runtime_config).await;
+    let cleanup_db_pool = state.db_pool.clone();
+    spawn(async move {
+        // TODO: configuration setting
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_mins(15));
+        println!("Begin cleanup thread");
+        loop {
+            interval.tick().await;
+            println!("Token Cleanup");
+
+            let result:anyhow::Result<()> = async {
+                match cleanup_db_pool.begin().await {
+                    Ok(mut tx) => {
+                        // expired an hour ago
+                        let expires_before = Utc::now() - TimeDelta::hours(1);
+                        match db_cleanup_tokens(&mut tx, &expires_before).await {
+                            Ok(count) => {
+                                tx.commit().await.context("Unable to commit transaction for token cleanup")
+                            }
+                            Err(error) => Err(error)
+                        }
+                    }
+                    Err(error) => Err(error.into())
+                }
+            }.await;
+
+            if let Err(result) = result {
+                error!("Failed to perform database cleanup: {}", result);
+            }
+        }
+    });
 
 
     let port = 8080;

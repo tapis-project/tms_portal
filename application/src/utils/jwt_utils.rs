@@ -10,9 +10,11 @@ use axum_extra::headers::authorization::Bearer;
 use axum_extra::TypedHeader;
 use chrono::{DateTime, Utc};
 use http::request::Parts;
+use log::{info, trace};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
+use tracing::{enabled, Level};
 use uuid::{Uuid};
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
@@ -146,7 +148,14 @@ where {
         } else {
             let jwt_claims = get_token_claims(&app_state.db_pool, &bearer).await?;
             let tms_identity = jwt_claims.get_sub()?;
-            dbg!(&tms_identity);
+            info!("Request uri: {} TMS Identity: {}", req_parts.uri, tms_identity);
+            if(enabled!(Level::TRACE)) {
+                req_parts.headers.iter().for_each(|(header_name, header_value)| {
+                    trace!("Begin Headers");
+                    trace!("Header: {} Value: {:?}", header_name, header_value);
+                    trace!("End Headers");
+                })
+            }
             Ok(JwtValidator(SecurityContext {
                 tms_identity: tms_identity.to_string(),
                 token: bearer.to_string(),

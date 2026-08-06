@@ -1,6 +1,6 @@
 use std::borrow::Cow;
+use log::trace;
 use serde::{Deserialize};
-use tracing::debug;
 use url::Url;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,12 +67,12 @@ impl HttpConfig {
             relative_path_string = Cow::from(format!("/{}", relative_path_string))
         };
 
-        debug!("Base Url String: {0}", base_url_string);
-        debug!("Relative Path String: {0}", relative_path_string);
+        trace!("Base Url String: {0}", base_url_string);
+        trace!("Relative Path String: {0}", relative_path_string);
         if let Ok(base_url) = Url::parse(base_url_string) {
-            debug!("Base Url: {0}", base_url);
+            trace!("Base Url: {0}", base_url);
             if let Ok(full_url) = base_url.join(relative_path_string.as_ref()) {
-                debug!("Full Url: {0}", full_url);
+                trace!("Full Url: {0}", full_url);
                 return full_url.to_string();
             };
         };

@@ -53,7 +53,6 @@ pub async fn db_get_state_key_id<'a>(tx: &mut PgTransaction<'a>) -> anyhow::Resu
         .bind(CONFIG_NAME_STATE_KEY)
         .fetch_one(&mut **tx)
         .await?;
-    dbg!(&row);
     StateKey::try_from(&row)
 }
 
@@ -62,7 +61,6 @@ pub async fn db_get_http_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<Ht
         .bind(CONFIG_NAME_HTTP_CONFIG)
         .fetch_one(&mut **tx)
         .await?;
-    dbg!(&row);
     HttpConfig::try_from(&row)
 }
 
@@ -71,7 +69,6 @@ pub async fn db_get_oauth_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<O
         .bind(CONFIG_NAME_OAUTH_CONFIG)
         .fetch_one(&mut **tx)
         .await?;
-    dbg!(&row);
     OAuthConfig::try_from(&row)
 }
 
@@ -80,7 +77,6 @@ pub async fn db_get_jwt_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<Jwt
         .bind(CONFIG_NAME_JWT_CONFIG)
         .fetch_one(&mut **tx)
         .await?;
-    dbg!(&row);
     JwtConfig::try_from(&row)
 }
 pub async fn db_get_runtime_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<RuntimeConfig> {
@@ -88,6 +84,5 @@ pub async fn db_get_runtime_config(tx: &mut PgTransaction<'_>) -> anyhow::Result
         .bind(CONFIG_NAME_RUNTIME_CONFIG)
         .fetch_one(&mut **tx)
         .await?;
-    dbg!(&row);
     RuntimeConfig::try_from(&row)
 }

@@ -57,7 +57,6 @@ pub async fn handle_callback(
     let decoded_state:OAuth2State = decode_state(db_pool, state)
         .await
         .context("Unable to decode state query param")?;
-    dbg!(&decoded_state);
 
     let mut tx = db_pool.begin().await?;
     let idp = db_get_login_provider_by_id(&mut tx, &decoded_state.idp_id)

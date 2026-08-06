@@ -81,7 +81,6 @@ pub async fn db_get_login_provider_by_id<'a>(
         sqlx::Error::RowNotFound => NotFound(format!("Idp id {} not found", id)).into(),
         _ => anyhow::anyhow!(error),
     })?;
-    dbg!(&row);
     IdentityProvider::try_from(&row)
 }
 /*

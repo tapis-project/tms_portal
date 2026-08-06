@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use log::{info};
 use tms_lib::utils::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
@@ -27,7 +28,6 @@ pub async fn db_get_token<'a>(
             sqlx::Error::RowNotFound => NotFound(format!("Token not found")).into(),
             _ => anyhow::anyhow!(error),
         })?;
-    dbg!(&row);
     Ok(IssuedToken::from(&row))
 }
 pub async fn db_delete_token<'a>(
@@ -42,7 +42,6 @@ pub async fn db_delete_token<'a>(
             sqlx::Error::RowNotFound => NotFound("Token not found".to_string()).into(),
             _ => anyhow::anyhow!(error),
         })?;
-    dbg!(&row);
     Ok(IssuedToken::from(&row))
 }
 
@@ -58,7 +57,6 @@ pub async fn db_revoke_token<'a>(
             sqlx::Error::RowNotFound => NotFound("Token not found".to_string()).into(),
             _ => anyhow::anyhow!(error),
         })?;
-    dbg!(&row);
     Ok(IssuedToken::from(&row))
 }
 
@@ -76,6 +74,20 @@ pub async fn db_insert_token<'a>(
             sqlx::Error::RowNotFound => NotFound("Token not found".to_string()).into(),
             _ => anyhow::anyhow!(error),
         })?;
-    dbg!(&row);
     Ok(IssuedToken::from(&row))
+}
+pub async fn db_cleanup_tokens<'a>(
+    tx: &mut PgTransaction<'a>,
+    expired_before: &DateTime<Utc>,
+) -> anyhow::Result<u64> {
+    let row_result = query("delete from issued_tokens where expiration < $1")
+        .bind(expired_before)
+        .execute(&mut **tx)
+        .await
+        .map_err(|error| match error {
+            sqlx::Error::RowNotFound => NotFound("Token not found".to_string()).into(),
+            _ => anyhow::anyhow!(error),
+        })?;
+    info!("Deleted {} expired tokens", &row_result.rows_affected());
+    Ok(row_result.rows_affected())
 }

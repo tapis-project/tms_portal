@@ -26,7 +26,6 @@ pub async fn db_get_client_by_id<'a>(
             sqlx::Error::RowNotFound => NotFound(format!("Client id {} not found", id)).into(),
             _ => anyhow::anyhow!(error),
         })?;
-    dbg!(&row);
     Ok(Client::from(&row))
 }
 
@@ -46,6 +45,5 @@ pub async fn db_get_client_by_credentials<'a>(
         sqlx::Error::RowNotFound => NotFound(format!("Client id {} not found", id)).into(),
         _ => anyhow::anyhow!(error),
     })?;
-    dbg!(&row);
     Ok(Client::from(&row))
 }
