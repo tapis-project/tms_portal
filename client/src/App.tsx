@@ -176,7 +176,9 @@ function ResourceCardSelector({ providerId }: { providerId: string }) {
         ))}
       </FieldGroup>
       <Button asChild>
-        <a href="#">Confirm Delegation and Return to Science Gateway</a>
+        <a href="http://localhost:8000">
+          Confirm Delegation and Return to Science Gateway
+        </a>
       </Button>
     </div>
   )
