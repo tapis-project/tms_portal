@@ -25,6 +25,7 @@ use crate::db::keys_dao::db_get_key_by_id;
 use crate::obj_model::identity_provider::IdentityProviderType;
 use crate::utils::app_error::AppError;
 use crate::utils::configuration::Configuration;
+use crate::utils::oauth2_authorization_code_utils::CLIENT_ID_TMS;
 
 const DEFAULT_ALGORITHM: &str = "RS256";
 
@@ -42,6 +43,7 @@ pub struct SecurityContext {
     pub tms_identity: String,
     // the original token
     pub token: String,
+    pub is_tms_client: bool,
 }
 pub struct JwtValidator(pub SecurityContext);
 #[derive(Debug, Serialize, Deserialize)]
@@ -92,6 +94,16 @@ impl TmsTokenClaims {
         let datetime_exp = get_datetime_from_value(&self.exp)?;
         let duration = datetime_exp - datetime_now;
         Ok(duration.num_seconds())
+    }
+
+    pub fn is_tms_client(&self) -> Result<bool> {
+        if let (Some(client_id)) = self.aud.as_str() {
+            Ok(CLIENT_ID_TMS == client_id)
+        } else {
+            // I'm not sure why this might happen, but it doesn't seem like a fatal error either,so
+            // we'll just say it's not the tms client
+            Ok(false)
+        }
     }
 }
 
@@ -156,9 +168,14 @@ where {
                     trace!("End Headers");
                 })
             }
+            let is_tms_client = jwt_claims.is_tms_client()?;
+            if(is_tms_client) {
+                trace!("TMS Client connected");
+            }
             Ok(JwtValidator(SecurityContext {
                 tms_identity: tms_identity.to_string(),
                 token: bearer.to_string(),
+                is_tms_client,
                 // we can add more to this if we need to
 //                tms_token_claims: jwt_claims,
             }))

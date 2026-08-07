@@ -8,21 +8,23 @@ mod utils;
 mod obj_model;
 
 use anyhow::Context;
+use axum::body::Body;
 use crate::config::{init_db, init_logging};
 use crate::routes::{login, oauth, resource, well_known};
 //use axum_extra::extract::cookie::Key;
 use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
 use axum::handler::HandlerWithoutStateExt;
 use axum::response::IntoResponse;
-use axum::Router;
+use axum::{middleware, Router};
+use axum::middleware::Next;
 use chrono::{TimeDelta, Utc};
 use http::Request;
 use log::error;
 use sqlx::PgPool;
 use tokio::spawn;
 use tower_http::services::ServeDir;
-use tower_http::trace::TraceLayer;
-use tracing::{instrument, Level};
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::{info_span, instrument, Level};
 use url::Url;
 use uuid::Uuid;
 use crate::db::issued_tokens_dao::db_cleanup_tokens;
@@ -108,6 +110,8 @@ async fn main() {
 
     println!("Server running on port {0}", &port);
 
+    log_mdc::insert("request_id", "HELLO WORLD");
+
     // build our application with a single route
     let app = Router::new()
         //        .merge(auth::router().await)
@@ -115,6 +119,14 @@ async fn main() {
         .merge(login::router().await)
         .merge(resource::router().await)
         .merge(oauth::router().await)
+        .layer(middleware::from_fn( | request: Request<Body>, next: Next | async move
+            {
+                let request_id = Uuid::new_v4().to_string();
+                log_mdc::insert("request_id", request_id.clone());
+                let res = next.run(request).await;
+                res
+            }
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
         .nest_service("/assets", ServeDir::new("dist/assets"))
