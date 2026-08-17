@@ -12,10 +12,12 @@ use url::Url;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use tms_lib::utils::service_error::ServiceError::{Internal, Unauthorized};
 use crate::db::allowed_redirects_dao::{db_get_allowed_redirect};
-use crate::db::auth_code_data::{db_delete_auth_code_data, db_insert_auth_code_data};
+use crate::db::auth_code_data_dao::{db_delete_auth_code_data, db_insert_auth_code_data};
 use crate::db::client_dao::{db_get_client_by_credentials,};
 use crate::db::config_dao::{db_get_http_config};
-use crate::db::identity_provider_dao::{db_get_login_provider_by_id, IdentityProvider};
+use crate::db::identity_provider_dao::{db_get_login_provider_by_id};
+use crate::db::issued_tokens_dao::db_insert_token;
+use crate::obj_model::identity_provider::IdentityProvider;
 use crate::services::login_service::AuthorizationCodeResponse;
 use crate::utils::configuration::Configuration;
 use crate::utils::jwt_utils::{get_tms_token_claims, make_auth_token, JwtClaims};
@@ -181,7 +183,6 @@ pub async fn get_provider_token(
     let decoded_state:OAuth2State = decode_state(pool, state)
         .await
         .context("Unable to decode state query param")?;
-    dbg!(&decoded_state);
 
     let mut tx = pool.begin().await?;
     let idp = db_get_login_provider_by_id(&mut tx, &decoded_state.idp_id)
@@ -191,7 +192,6 @@ pub async fn get_provider_token(
     tx.commit().await?;
 
     let token:AuthorizationCodeResponse = get_token_for_provider(&idp, &http_config.get_oauth_provider_callback_url(), code).await?;
-    dbg!(&token);
     Ok(token.id_token)
 }
 

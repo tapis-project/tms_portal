@@ -10,18 +10,22 @@ use axum_extra::headers::authorization::Bearer;
 use axum_extra::TypedHeader;
 use chrono::{DateTime, Utc};
 use http::request::Parts;
+use log::{info, trace};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::PgPool;
+use tracing::{enabled, Level};
 use uuid::{Uuid};
-use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::jwt_encoder::JwtEncoderBuilder;
 use crate::AppState;
 use crate::db::config_dao::{db_get_jwt_config};
-use crate::db::identity_provider_dao::IdentityProviderType;
+use crate::db::issued_tokens_dao::{db_get_token, db_insert_token};
 use crate::db::keys_dao::db_get_key_by_id;
+use crate::obj_model::identity_provider::IdentityProviderType;
+use crate::utils::app_error::AppError;
 use crate::utils::configuration::Configuration;
+use crate::utils::oauth2_authorization_code_utils::CLIENT_ID_TMS;
 
 const DEFAULT_ALGORITHM: &str = "RS256";
 
@@ -37,7 +41,9 @@ pub trait Claims {
 pub type JwtClaims = HashMap<String, Value>;
 pub struct SecurityContext {
     pub tms_identity: String,
-//    pub tms_token_claims: TmsTokenClaims,
+    // the original token
+    pub token: String,
+    pub is_tms_client: bool,
 }
 pub struct JwtValidator(pub SecurityContext);
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,11 +86,24 @@ impl TmsTokenClaims {
         let datetime = get_datetime_from_value(&self.exp)?;
         Ok(datetime.to_rfc3339())
     }
+    pub fn get_expires_at_dt(&self) -> Result<DateTime<Utc>> {
+        get_datetime_from_value(&self.exp)
+    }
     pub fn get_expires_in(&self) -> Result<i64> {
         let datetime_now = Utc::now();
         let datetime_exp = get_datetime_from_value(&self.exp)?;
         let duration = datetime_exp - datetime_now;
         Ok(duration.num_seconds())
+    }
+
+    pub fn is_tms_client(&self) -> Result<bool> {
+        if let (Some(client_id)) = self.aud.as_str() {
+            Ok(CLIENT_ID_TMS == client_id)
+        } else {
+            // I'm not sure why this might happen, but it doesn't seem like a fatal error either,so
+            // we'll just say it's not the tms client
+            Ok(false)
+        }
     }
 }
 
@@ -95,6 +114,10 @@ async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenCl
     };
 
     let mut tx = db_pool.begin().await?;
+    let issued_token = db_get_token(&mut tx, token).await?;
+    if(issued_token.is_revoked() || issued_token.is_expired()) {
+        return Err(Unauthorized("Token is expired or revoked".to_string()).into());
+    }
     let key = match token_header.kid {
         Some(kid) => db_get_key_by_id(&mut tx, &kid).await,
         None => return Err(BadRequest(String::from("Unable to find key for jwt")).into()),
@@ -137,9 +160,22 @@ where {
         } else {
             let jwt_claims = get_token_claims(&app_state.db_pool, &bearer).await?;
             let tms_identity = jwt_claims.get_sub()?;
-            dbg!(&tms_identity);
+            info!("Request uri: {} TMS Identity: {}", req_parts.uri, tms_identity);
+            if(enabled!(Level::TRACE)) {
+                req_parts.headers.iter().for_each(|(header_name, header_value)| {
+                    trace!("Begin Headers");
+                    trace!("Header: {} Value: {:?}", header_name, header_value);
+                    trace!("End Headers");
+                })
+            }
+            let is_tms_client = jwt_claims.is_tms_client()?;
+            if(is_tms_client) {
+                trace!("TMS Client connected");
+            }
             Ok(JwtValidator(SecurityContext {
                 tms_identity: tms_identity.to_string(),
+                token: bearer.to_string(),
+                is_tms_client,
                 // we can add more to this if we need to
 //                tms_token_claims: jwt_claims,
             }))
@@ -164,14 +200,19 @@ pub async fn make_auth_token(
     //         &jwt_config, &client_id, &idp_id, &idp_type, &claims).await?;
 
     // TODO: add kid, alg, and jti in header ... maybe other stuff?
-    JwtEncoderBuilder::builder(
+    let tms_token_string = JwtEncoderBuilder::builder(
         tms_token_claims,
         keys.jwt_private_key.as_bytes(),
         DEFAULT_ALGORITHM,
         kid,
     )
         .encode()
-        .await
+        .await?;
+
+    let mut tx = db_pool.begin().await?;
+    db_insert_token(&mut tx, &tms_token_string, &tms_token_claims.get_expires_at_dt()?).await?;
+    tx.commit().await?;
+    Ok(tms_token_string)
 }
 pub async fn get_tms_token_claims(configuration:&Configuration,
                                   client_id: &String,

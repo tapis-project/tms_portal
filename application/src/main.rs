@@ -2,24 +2,33 @@ extern crate core;
 
 mod config;
 mod db;
-mod models;
 mod routes;
 mod services;
 mod utils;
+mod obj_model;
 
+use anyhow::Context;
+use axum::body::Body;
 use crate::config::{init_db, init_logging};
 use crate::routes::{login, oauth, resource, well_known};
 //use axum_extra::extract::cookie::Key;
 use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
 use axum::handler::HandlerWithoutStateExt;
 use axum::response::IntoResponse;
-use axum::Router;
+use axum::{middleware, Router};
+use axum::middleware::Next;
+use chrono::{TimeDelta, Utc};
+use http::Request;
+use log::error;
 use sqlx::PgPool;
+use tokio::spawn;
 use tower_http::services::ServeDir;
-use tower_http::trace::TraceLayer;
-use tracing::instrument;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::{info_span, instrument, Level};
 use url::Url;
-use models::app_error::AppError;
+use uuid::Uuid;
+use crate::db::issued_tokens_dao::db_cleanup_tokens;
+use crate::utils::app_error::AppError;
 use crate::utils::configuration::Configuration;
 
 #[derive(Debug, Clone)]
@@ -56,19 +65,52 @@ async fn main() {
         db_pool: init_db(&database_url_string).await,
     };
 
-    let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
-
-    init_logging(&config.runtime_config).await;
-
     println!("Running sqlx/Postgresql migration");
     sqlx::migrate!("./migrations/")
         .run(&state.db_pool)
         .await
         .unwrap();
 
+    let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
+
+    init_logging(&config.runtime_config).await;
+    let cleanup_db_pool = state.db_pool.clone();
+    spawn(async move {
+        // TODO: configuration setting
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_mins(15));
+        println!("Begin cleanup thread");
+        loop {
+            interval.tick().await;
+            println!("Token Cleanup");
+
+            let result:anyhow::Result<()> = async {
+                match cleanup_db_pool.begin().await {
+                    Ok(mut tx) => {
+                        // expired an hour ago
+                        let expires_before = Utc::now() - TimeDelta::hours(1);
+                        match db_cleanup_tokens(&mut tx, &expires_before).await {
+                            Ok(count) => {
+                                tx.commit().await.context("Unable to commit transaction for token cleanup")
+                            }
+                            Err(error) => Err(error)
+                        }
+                    }
+                    Err(error) => Err(error.into())
+                }
+            }.await;
+
+            if let Err(result) = result {
+                error!("Failed to perform database cleanup: {}", result);
+            }
+        }
+    });
+
+
     let port = 8080;
 
     println!("Server running on port {0}", &port);
+
+    log_mdc::insert("request_id", "HELLO WORLD");
 
     // build our application with a single route
     let app = Router::new()
@@ -77,6 +119,14 @@ async fn main() {
         .merge(login::router().await)
         .merge(resource::router().await)
         .merge(oauth::router().await)
+        .layer(middleware::from_fn( | request: Request<Body>, next: Next | async move
+            {
+                let request_id = Uuid::new_v4().to_string();
+                log_mdc::insert("request_id", request_id.clone());
+                let res = next.run(request).await;
+                res
+            }
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
         .nest_service("/assets", ServeDir::new("dist/assets"))

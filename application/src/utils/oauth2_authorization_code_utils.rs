@@ -1,11 +1,11 @@
 use std::collections::HashSet;
-use crate::db::identity_provider_dao::IdentityProvider;
 use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
-use crate::db::identity_provider_dao;
+use crate::obj_model;
+use crate::obj_model::identity_provider::IdentityProvider;
 
 pub const ROOT_COOKIE_PATH: &str = "/";
 pub const CLIENT_ID_TMS: &str = "tms";
@@ -73,7 +73,7 @@ where
 }
 
 pub async fn decode_access_token<T>(
-    idp: &identity_provider_dao::IdentityProvider,
+    idp: &obj_model::identity_provider::IdentityProvider,
     id_token: &String,
 ) -> Result<T>
 where

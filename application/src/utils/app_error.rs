@@ -1,7 +1,5 @@
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use tms_lib::utils::service_error::ServiceError;
-use crate::models::tms_response::TmsResponse;
 
 pub struct AppError(anyhow::Error);
 impl<E> From<E> for AppError
@@ -13,9 +11,9 @@ where
     }
 }
 
-impl IntoResponse for AppError {
-    fn into_response(self) -> axum::response::Response {
-        let error_tuple = if let Some(error) = self.0.downcast_ref::<ServiceError>() {
+impl AppError {
+    pub fn as_tuple(&self) -> (StatusCode, String) {
+        if let Some(error) = self.0.downcast_ref::<ServiceError>() {
             match error {
                 ServiceError::Internal(_) => {
                     (StatusCode::INTERNAL_SERVER_ERROR, format!("{:#}", error))
@@ -32,12 +30,6 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("(Generic): {:#}", self.0),
             )
-        };
-
-        // build a TmsResponse object, and convert that into a Response
-        TmsResponse::builder(error_tuple.0)
-            .entity(error_tuple.1)
-            .build()
-            .into_response()
+        }
     }
 }

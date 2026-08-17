@@ -1,5 +1,3 @@
-use crate::models::tms_response::TmsResponse;
-use crate::models::resource_api::{GetLinkedResourceProviderResponse, GetResourceProviderResponse, GetResourceResponse, Resource, ResourceProviderAuthorizeRequest, UnlinkResourceProviderResponse};
 use crate::services::resource_service::{get_authenticate_redirect_info, get_linked_resource_providers, get_resource_provider_token, get_resource_providers, unlink_resource_provider};
 use tms_lib::utils::service_error::ServiceError::Unauthorized;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ListResourceProviderRequestParams, OAuth2State, CLIENT_ID_TMS};
@@ -17,7 +15,9 @@ use reqwest::StatusCode;
 use std::collections::{HashMap, HashSet};
 use std::string::ToString;
 use uuid::Uuid;
-use crate::models::app_error::AppError;
+use crate::routes::api_obj_model::resources::{Resource, ResourceAccountLink, ResourceAccountLogin, ResourceProvider, ResourceProviderAuthorizeRequest};
+use crate::routes::api_obj_model::tms_response::TmsResponse;
+use crate::utils::app_error::AppError;
 use crate::utils::jwt_utils::JwtValidator;
 use crate::utils::state_utils::decode_state;
 
@@ -96,35 +96,37 @@ pub async fn list_resource_provider_handler(
     State(app_state): State<AppState>,
     query_params: Query<ListResourceProviderRequestParams>,
     JwtValidator(security_context): JwtValidator,
-) -> Result<TmsResponse<GetResourceProviderResponse>, AppError> {
+) -> Result<TmsResponse<HashSet<ResourceProvider>>, AppError> {
     let linked_only = query_params.linked_only.unwrap_or_else(|| false);
     let result = get_resource_providers(&security_context, &app_state.db_pool, &linked_only).await?;
-    Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
+    let response = result.iter().map(|value| ResourceProvider::from(value)).collect();
+    Ok(TmsResponse::builder(StatusCode::OK).entity(response).build())
 }
 #[debug_handler]
 pub async fn unlink_resource_provider_handler (
     State(app_state): State<AppState>,
-    Path((resource_provider_link_id)):Path<(i64)>,
+    Path(resource_provider_link_id):Path<i64>,
     JwtValidator(security_context): JwtValidator,
-) -> Result<TmsResponse<UnlinkResourceProviderResponse>, AppError> {
+) -> Result<TmsResponse<ResourceAccountLogin>, AppError> {
     let result = unlink_resource_provider(&security_context, &app_state.db_pool,
                                           &resource_provider_link_id).await?;
-    Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
+    Ok(TmsResponse::builder(StatusCode::OK).entity(result.into()).build())
 }
 #[debug_handler]
 pub async fn get_linked_resource_provider_handler (
     State(app_state): State<AppState>,
     JwtValidator(security_context): JwtValidator,
-) -> Result<TmsResponse<GetLinkedResourceProviderResponse>, AppError> {
+) -> Result<TmsResponse<HashSet<ResourceAccountLink>>, AppError> {
     let result = get_linked_resource_providers(&security_context, &app_state.db_pool).await?;
-    Ok(TmsResponse::builder(StatusCode::OK).entity(result).build())
+    let response = result.iter().map(|value| ResourceAccountLink::from(value)).collect();
+    Ok(TmsResponse::builder(StatusCode::OK).entity(response).build())
 }
 #[debug_handler]
 pub async fn get_resource_handler(
     State(_app_state): State<AppState>,
     Path((provider_id, provider_account_id)): Path<(String, String)>,
     JwtValidator(_security_context): JwtValidator,
-) -> Result<TmsResponse<GetResourceResponse>, AppError> {
+) -> Result<TmsResponse<HashSet<Resource>>, AppError> {
     // Check that token is valid by getting claims
     let r1 = Resource {
         id: Uuid::new_v4().to_string(),

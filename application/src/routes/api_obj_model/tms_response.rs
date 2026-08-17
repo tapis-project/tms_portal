@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
 use serde::Serialize;
 use std::collections::HashMap;
+use axum::response::{IntoResponse, Response};
+use crate::utils::app_error::AppError;
 
 pub struct TmsResponseBuilder<T>
 where
@@ -55,4 +57,13 @@ where
     }
 }
 
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let error_tuple = self.as_tuple();
+        // build a TmsResponse object, and convert that into a Response
+        TmsResponse::builder(error_tuple.0)
+            .entity(error_tuple.1)
+            .build().into_response()
+    }
+}
 

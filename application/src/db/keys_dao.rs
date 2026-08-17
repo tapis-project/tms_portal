@@ -1,16 +1,8 @@
-use chrono::{DateTime, Utc};
+use log::trace;
 use tms_lib::utils::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
-
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct Key {
-    pub kid: String,
-    pub jwt_public_key: String,
-    pub jwt_private_key: String,
-    pub created: DateTime<Utc>,
-    pub updated: DateTime<Utc>,
-}
+use crate::obj_model::keys::Key;
 
 impl From<&PgRow> for Key {
     fn from(row: &PgRow) -> Self {
@@ -35,6 +27,5 @@ pub async fn db_get_key_by_id<'a>(tx: &mut PgTransaction<'a>, kid: &String) -> a
         sqlx::Error::RowNotFound => NotFound(format!("Key kid {} not found", kid)).into(),
         _ => anyhow::anyhow!(error),
     })?;
-    dbg!(&row);
     Ok(Key::from(&row))
 }

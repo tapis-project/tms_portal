@@ -1,7 +1,7 @@
+use std::collections::HashSet;
 use crate::db::allowed_redirects_dao::db_get_allowed_redirect;
 use crate::db::config_dao::db_get_http_config;
-use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_provider_by_uuid, db_get_resource_providers};
-use crate::models::resource_api::{GetLinkedResourceProviderResponse, GetResourceProviderResponse, UnlinkResourceProviderResponse};
+use crate::db::identity_provider_dao::{db_get_resource_provider_by_id, db_get_resource_providers};
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Internal};
 use crate::utils::oauth2_authorization_code_utils::{get_token_for_provider, OAuth2State};
 use anyhow::{Context, Result};
@@ -12,14 +12,14 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::time::SystemTime;
 use chrono::{Utc};
-use log::error;
 use serde_json::Value;
 use url::Url;
-use uuid::Uuid;
-use crate::models::app_error::AppError;
 use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::oauth_utils::generate_nonce;
-use crate::db::resource_provider_account_logins::{db_add_or_update_resource_account_login, db_delete_resource_provider_link, db_get_resource_provider_links_for_identity};
+use crate::db::resource_provider_account_logins_dao::{db_add_or_update_resource_account_login, db_delete_resource_provider_link, db_get_resource_provider_links_for_identity};
+use crate::obj_model::identity_provider::ResourceProvider;
+use crate::obj_model::resources::{ResourceAccountLink, ResourceAccountLogin};
+use crate::utils::app_error::AppError;
 use crate::utils::jwt_utils::{SecurityContext};
 use crate::utils::state_utils::encode_state;
 
@@ -58,20 +58,20 @@ pub struct ResourceProviderAuthorizeInfo {
     pub client_id: String,
     pub client_secret: String,
 }
-pub async fn get_resource_providers(security_context:&SecurityContext, db_pool: &PgPool, linked_only: &bool) -> Result<GetResourceProviderResponse> {
+pub async fn get_resource_providers(security_context:&SecurityContext, db_pool: &PgPool, linked_only: &bool) -> Result<HashSet<ResourceProvider>> {
     let mut tx = db_pool.begin().await?;
     let rps =
         db_get_resource_providers(&mut tx, &security_context.tms_identity, linked_only).await?;
     tx.commit().await?;
 
-    let mut resource_provider_result = GetResourceProviderResponse::new();
+    let mut resource_provider_result = HashSet::new();
     rps.iter().for_each(|rp| {
         resource_provider_result.insert(rp.clone().into());
     });
     Ok(resource_provider_result)
 }
 pub async fn unlink_resource_provider(security_context:&SecurityContext, db_pool: &PgPool,
-                                      resource_provider_link_id: &i64) -> Result<UnlinkResourceProviderResponse> {
+                                      resource_provider_link_id: &i64) -> Result<ResourceAccountLogin> {
     let mut tx = db_pool.begin().await?;
     let rps =
         db_delete_resource_provider_link(&mut tx, &security_context.tms_identity, &resource_provider_link_id).await?;
@@ -79,13 +79,13 @@ pub async fn unlink_resource_provider(security_context:&SecurityContext, db_pool
 
     Ok(rps.into())
 }
-pub async fn get_linked_resource_providers(security_context:&SecurityContext, db_pool: &PgPool) -> Result<GetLinkedResourceProviderResponse> {
+pub async fn get_linked_resource_providers(security_context:&SecurityContext, db_pool: &PgPool) -> Result<HashSet<ResourceAccountLink>> {
     let mut tx = db_pool.begin().await?;
     let links =
         db_get_resource_provider_links_for_identity(&mut tx, &security_context.tms_identity).await?;
     tx.commit().await?;
 
-    let mut resource_provider_result = GetLinkedResourceProviderResponse::new();
+    let mut resource_provider_result = HashSet::new();
     links.iter().for_each(|rp| {
         resource_provider_result.insert(rp.clone().into());
     });

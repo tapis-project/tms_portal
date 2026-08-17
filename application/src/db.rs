@@ -3,5 +3,6 @@ pub mod client_dao;
 pub mod config_dao;
 pub mod identity_provider_dao;
 pub mod keys_dao;
-pub mod resource_provider_account_logins;
-pub mod auth_code_data;
+pub mod resource_provider_account_logins_dao;
+pub mod auth_code_data_dao;
+pub mod issued_tokens_dao;

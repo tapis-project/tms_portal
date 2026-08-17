@@ -14,10 +14,10 @@ use serde::{Deserialize, Serialize};
 use tms_lib::utils::service_error::ServiceError;
 use tms_lib::utils::service_error::ServiceError::{BadRequest, Unauthorized};
 use crate::AppState;
-use crate::models::app_error::AppError;
-use crate::models::tms_response::TmsResponse;
+use crate::routes::api_obj_model::tms_response::TmsResponse;
 use crate::services::oauth2_service::{get_access_token_from_code, authorize_code, TokenResponse, process_authorization_callback};
 use crate::services::resource_service::AccessToken;
+use crate::utils::app_error::AppError;
 use crate::utils::oauth2_authorization_code_utils::{AuthCodeQueryParams, ROOT_COOKIE_PATH, STATE_COOKIE_NAME};
 
 /*

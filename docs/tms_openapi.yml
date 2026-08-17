@@ -37,6 +37,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TmsErrorResponse'
+  "/logout":
+    post:
+      tags:
+        - Login
+      summary: Logout
+      description: Log out of TMS Portal
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsLogoutResponse'
 
   "/login/whoami":
     get:
@@ -148,7 +161,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResourceProvidersResponse'
+                type: array
+                uniqueItems: true
+                items:
+                  $ref: '#/components/schemas/ResourceProvider'
 
   "/resources/providers/links":
     get:
@@ -164,7 +180,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetLinkedResourceProviderResponse'
+                type: array
+                uniqueItems: true
+                items:
+                  $ref: '#/components/schemas/ResourceAccountLink'
 
   "/resources/providers/links/{resource_provider_link_id}":
     delete:
@@ -188,7 +207,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UnlinkResourceProviderResponse'
+                $ref: '#/components/schemas/ResourceAccountLogin'
 
   "/resources/providers/authorize":
     get:
@@ -356,6 +375,14 @@ components:
           type: string
         redirect_uri:
           type: string
+          
+    TmsLogoutResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: string
 
     ListLoginIdpResponse:
       type: object
@@ -376,34 +403,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Resource'
-
-    ListResourceProvidersResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        result:
-          type: array
-          items:
-            $ref: '#/components/schemas/IdentityProvider'
-
-    GetLinkedResourceProviderResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        result:
-          type: array
-          items:
-            $ref: '#/components/schemas/ResourceProviderLink'
-
-    UnlinkResourceProviderResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        result:
-          $ref: '#/components/schemas/ResourceProviderLogins'
 
     TmsCallbackResponse:
       type: object
@@ -428,8 +427,30 @@ components:
           type: string
         userInfoUrl:
           type: string
+        created:
+          type: string
+        updated:
+          type: string
 
-    ResourceProviderLink:
+    ResourceProvider:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        clientId:
+          type: string
+        oauth2TokenUrl:
+          type: string
+        userInfoUrl:
+          type: string
+        created:
+          type: string
+        updated:
+          type: string
+
+    ResourceAccountLink:
       type: object
       properties:
         tms_identity:
@@ -449,7 +470,7 @@ components:
         enabled:
           type: boolean
 
-    ResourceProviderLogins:
+    ResourceAccountLogin:
       type: object
       properties:
         tms_identity:

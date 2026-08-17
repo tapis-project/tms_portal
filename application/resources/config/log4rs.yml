@@ -18,7 +18,7 @@ appenders:
   stdout:
     kind: console
     encoder:
-      pattern: "{d(%Y-%m-%dT%H:%M:%S.%f)(utc)}Z {l:<5} [{T}] {f:>.100}:{L} - {m}{n}"
+        pattern: "{d(%Y-%m-%dT%H:%M:%S.%f)(utc)}Z {l:<5} [{T}] {f:>.100}:{L} RID: {X(request_id)(N/A)} - {m}{n}"
 
 #  fout:
 #    kind: file
@@ -32,7 +32,7 @@ appenders:
     path: "logs/tms_portal_roller.log"
     encoder:
       kind: pattern
-      pattern: "{d(%Y-%m-%dT%H:%M:%S.%f)(utc)}Z {l:<5} [{T}] {f:>.100}:{L} - {m}{n}"
+      pattern: "{d(%Y-%m-%dT%H:%M:%S.%f)(utc)}Z {l:<5} [{T}] {f:>.100}:{L} RID: {X(request_id)(N/A)} - {m}{n}"
     policy:
       kind: compound
       trigger:
@@ -43,12 +43,22 @@ appenders:
         base: 1
         count: 3
         pattern: "{{TMS_ROOT_DIR}}/logs/tms_portal_roller{}.log"
+
+loggers:
+  sqlx:
+    level: warn
+    appenders:
+      - stdout
+      - roller
+    additive: false
+
         
 root:
   level: info
   appenders:
     - stdout
     - roller
+
 
 # loggers:
 #   rust-logtest2:

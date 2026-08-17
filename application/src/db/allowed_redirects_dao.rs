@@ -1,16 +1,8 @@
 use tms_lib::utils::service_error::ServiceError::BadRequest;
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
 use sqlx::postgres::PgRow;
 use sqlx::{query, Error, PgTransaction, Row};
-
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct AllowedRedirect {
-    pub uri: String,
-    pub client_id: String,
-    pub created: DateTime<Utc>,
-    pub updated: DateTime<Utc>,
-}
+use crate::obj_model::allowed_redirects::AllowedRedirect;
 
 impl From<&PgRow> for AllowedRedirect {
     fn from(row: &PgRow) -> Self {

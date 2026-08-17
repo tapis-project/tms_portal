@@ -1,5 +1,6 @@
 use sqlx::PgPool;
-use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_oauth_config, db_get_runtime_config, HttpConfig, JwtConfig, OAuthConfig, RuntimeConfig};
+use crate::db::config_dao::{db_get_http_config, db_get_jwt_config, db_get_oauth_config, db_get_runtime_config};
+use crate::obj_model::configuration::{HttpConfig, JwtConfig, OAuthConfig, RuntimeConfig};
 
 pub struct Configuration {
     pub http_config: HttpConfig,
