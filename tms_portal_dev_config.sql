@@ -44,7 +44,7 @@ VALUES('<put your state signing kid here>',
 );
 
 -- Add tms client
-INSERT INTO clients (id, name, secret) 
+INSERT INTO prtl_clients (id, name, secret) 
         VALUES('tms', 'Tms Service', 'tms');
 
 -- Add allowed redirects (with and without trailing slash)
