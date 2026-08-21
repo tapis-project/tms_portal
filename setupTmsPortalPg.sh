@@ -5,27 +5,31 @@ SCRIPT_DIR=$(dirname $0)
 
 PG_PORT="5432"
 PG_CONTAINER="tms_portal_postgres"
-PG_USER="tms_portal_user"
-PG_DATABASE="tms_portal_db"
-PG_USER_PASSWORD="tms_portal_password"
+PG_ROLE="tms"
+PG_DATABASE="tms_db"
+PG_SCHEMA="tms"
+PG_ROLE_PASSWORD="tms_password"
 PG_ADMIN_USER="postgres"
 PG_ADMIN_PASS="pg_admin_pass"
 
 function usage() {
-  echo "$0 [-p port] [-u user] [-w password] [-d db]"
+  echo "$0 [-p port] [-r role] [-w password] [-d db] [-s schema]"
 
   echo "OPTIONS:"
   echo "     -p --port"
   echo "        The port to run postgres on"
   echo 
-  echo "     -u --pguser"
-  echo "        The postgres user for the service"
+  echo "     -r --pgrole"
+  echo "        The postgres role for the service"
   echo 
   echo "     -w --pgpass"
   echo "        The postgres password for the service"
   echo 
   echo "     -d --db"
   echo "        The postgres database name for the service"
+  echo 
+  echo "     -s --pgschema"
+  echo "        The postgres schema name for the service"
   echo 
   exit 1
 }
@@ -41,18 +45,23 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    -u|--pguser)
-      PG_USER="$2"
+    -r|--pgrole)
+      PG_ROLE="$2"
       shift # past argument
       shift # past value
       ;;
     -w|--pgpass)
-      PG_USER_PASSWORD="$2"
+      PG_ROLE_PASSWORD="$2"
       shift # past argument
       shift # past value
       ;;
     -n|--db)
       PG_DATABASE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    -s|--pgschema)
+      PG_SCHEMA="$2"
       shift # past argument
       shift # past value
       ;;
@@ -77,23 +86,29 @@ announce "pausing for startup"
 sleep 5
 
 announce "create tms_portal database"
-set -xv
+#set -xv
 docker exec -i ${PG_CONTAINER} psql -U ${PG_ADMIN_USER} <<EOD
 SELECT 'CREATE DATABASE ${PG_DATABASE} ENCODING="UTF8" LC_COLLATE="en_US.utf8" LC_CTYPE="en_US.utf8" ' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${PG_DATABASE}')\gexec
 EOD
 
-announce "create user ${PG_USER}"
+announce "create role ${PG_ROLE}"
 docker exec -i ${PG_CONTAINER} psql -U ${PG_ADMIN_USER} <<EOD
 DO \$\$
 BEGIN
-  CREATE USER ${PG_USER} with encrypted password '${PG_USER_PASSWORD}';
+  CREATE ROLE ${PG_ROLE} LOGIN password '${PG_ROLE_PASSWORD}';
   EXCEPTION WHEN DUPLICATE_OBJECT THEN
-  RAISE NOTICE 'User already exists. User name: "${PG_USER}"';
+  RAISE NOTICE 'Role already exists. Role name: "${PG_ROLE}"';
 END
 \$\$
 EOD
 
 docker exec -i ${PG_CONTAINER} psql -U ${PG_ADMIN_USER} <<EOD
-alter database ${PG_DATABASE} OWNER TO ${PG_USER} ;
+alter database ${PG_DATABASE} OWNER TO ${PG_ROLE} ;
+EOD
+
+docker exec -i ${PG_CONTAINER} psql -U ${PG_ROLE} ${PG_DATABASE} <<EOD
+  CREATE SCHEMA IF NOT EXISTS ${PG_SCHEMA} AUTHORIZATION ${PG_ROLE};
+  ALTER ROLE ${PG_ROLE} SET search_path = '${PG_SCHEMA}';
+  SET search_path TO ${PG_SCHEMA};
 EOD
 

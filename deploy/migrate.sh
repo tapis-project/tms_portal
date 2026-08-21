@@ -3,11 +3,11 @@
 
 SCRIPT_DIR=$(dirname $0)
 
-DB_USER="tms_portal_user"
-DB_PASSWORD="tms_portal_password"
+DB_ROLE="tms"
+DB_PASSWORD="tms_password"
 DB_HOST="localhost"
 DB_PORT="5432"
-DB_NAME="tms_portal_db"
+DB_NAME="tms_db"
 
 function usage() {
   echo "$0 [-p port] [-u user] [-w password] [-d db]"
@@ -16,8 +16,8 @@ function usage() {
   echo "     -p --port"
   echo "        Postgres port"
   echo 
-  echo "     -u --user"
-  echo "        Postgres user name"
+  echo "     -r --role"
+  echo "        Postgres role name"
   echo 
   echo "     -w --pass"
   echo "        Postgres password"
@@ -42,8 +42,8 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    -u|--user)
-      DB_USER="$2"
+    -r|--role)
+      DB_ROLE="$2"
       shift # past argument
       shift # past value
       ;;
@@ -62,22 +62,22 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    -*|--*)
+    -*)
       echo "Unknown option $1"
       usage
       ;;
     *)
-      echo "Unknown positional arguement $1"
+      echo "Unknown positional argument $1"
       usage
   esac
 done
 
 
-DB_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
-
+DB_URL=postgres://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+MIGRATION_DIR=${SCRIPT_DIR}/migrations
 cargo install sqlx-cli
-mkdir -p migrations
-pushd migrations
+mkdir -p ${MIGRATION_DIR}
+pushd ${MIGRATION_DIR}
 
 MIGRATION_FILES=$(http https://api.github.com/repos/tms-trust-project/tms_server/contents/resources/migrations | jq .[].download_url -r)
 for MFILE in ${MIGRATION_FILES} ; do 
@@ -88,4 +88,5 @@ for MFILE in ${MIGRATION_FILES} ; do
 done
 popd
 
-sqlx migrate run --database-url $DB_URL
+echo dburl = ${DB_URL}
+sqlx migrate run --database-url $DB_URL --source ${MIGRATION_DIR}

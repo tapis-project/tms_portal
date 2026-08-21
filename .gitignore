@@ -4,3 +4,4 @@
 # JetBrains RustRover files
 .idea
 .run
+deploy/migrations

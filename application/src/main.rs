@@ -43,8 +43,8 @@ struct AppState {
 async fn main() {
     let database_host = std::env::var("TMS_PORTAL_DB_HOST").expect("TMS_PORTAL_DB_HOST must be set");
     let database_port = std::env::var("TMS_PORTAL_DB_PORT").unwrap_or(String::from("5432"));
-    let database_name = std::env::var("TMS_PORTAL_DB_NAME").unwrap_or(String::from("tms_portal_db"));
-    let database_user = std::env::var("TMS_PORTAL_DB_USER").unwrap_or(String::from("tms_portal_user"));
+    let database_name = std::env::var("TMS_PORTAL_DB_NAME").unwrap_or(String::from("tms_db"));
+    let database_user = std::env::var("TMS_PORTAL_DB_USER").unwrap_or(String::from("tms"));
     let database_password =
         std::env::var("TMS_PORTAL_DB_PASSWORD").expect("TMS_PORTAL_DB_PASSWORD must be set");
 
@@ -64,12 +64,6 @@ async fn main() {
         // key: Key::generate(),
         db_pool: init_db(&database_url_string).await,
     };
-
-    println!("Running sqlx/Postgresql migration");
-    sqlx::migrate!("./migrations/")
-        .run(&state.db_pool)
-        .await
-        .unwrap();
 
     let config = Configuration::get(&state.db_pool).await.expect("Unable to read configuration from the database");
 
