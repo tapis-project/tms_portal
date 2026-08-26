@@ -261,32 +261,26 @@ paths:
           schema:
             type: string
           in: query
-        - name: response_type
-          description: Response type expected from authorize - currently only "code is" supported
-          required: true
-          schema:
-            type: string
-          in: query
         - name: client_id
-          description: Response type expected from authorize - currently only "code is" supported
+          description: client id for authorization
           required: true
           schema:
             type: string
           in: query
         - name: redirect_uri
-          description: Response type expected from authorize - currently only "code is" supported
+          description: Redirect uri for oauth callback
           required: true
           schema:
             type: string
           in: query
         - name: scope
-          description: Response type expected from authorize - currently only "code is" supported
+          description: scopes - currently this is ignored (but it will be used in the future)
           required: false
           schema:
             type: string
           in: query
         - name: state
-          description: Response type expected from authorize - currently only "code is" supported
+          description: App supplied state variable.  This will be sent to the callback url unchanged.
           required: false
           schema:
             type: string
