@@ -64,34 +64,33 @@ If you're running from the top level of the git repo, you can just create a syml
 `ln -s ./client/dist/ ./dist`
 
 ## Create the schema
+run the following command to create the schema from the tms_server project.  It will download the 
+sqlx migration files directly from that project, and apply them.
+```
+deploy/migrate.sh 
+```
+
+deploy/migrate.sh -? will give all of the command line options.  There are default values for everything,
+so you only need those parameters if you want to change something - for example the port.
+
 The schema is created the first time that you run the portal.
 ```
+export TMS_PORTAL_DB_PASSWORD=tms_password
 export TMS_PORTAL_DB_HOST=localhost
-export TMS_PORTAL_DB_PASSWORD=tms_portal_password
+```
+If you changed the port, you may need this also:
+```
+export TMS_PORTAL_DB_PORT=<tms_db_port>
 ```
 
-If you changed the db password from the default dev configuration in the setupTmsPortalPg.sh script, 
-you'll need to put in your own password instead of "tms_portal_password".
-
-If you changed the default port for postgres:
+## Populate db with sample data
+After editing the tms_portal_dev_config.sql template, use it to initialize the db.
 ```
-export TMS_PORTAL_DB_PORT=<your port>
-```
-
-## quick test, to make sure the UI comes up
-```
+cat tms_portal_dev_config.sql | docker exec -i tms_portal_postgres psql -U tms tms_db 
 cargo run
 ```
 Point the browser at http://localhost:8080/
-NOTE:  While you'll be able to load the page, you will not be able to login, etc.  This needs keys
-and configuration
 
-## If desired, populate db with sample data
-At this point everything is started up, but you'll need add identity providers, etc to make it work.  
-This is all done in the db.
-```
-cat tms_portal_dev_config.sql | docker exec -i tms_portal_postgres psql -U tms_portal_user tms_portal_db
-```
 Now the portal should be fully functional.  Some parts of this store cookies for later use.  If you want
 to force a new login, you can go to globus.io, login, and logout.  This will force authentication
 when you login via the tms portal.  For tacc resource provider, you can go to tacc.tapis.io, and from
