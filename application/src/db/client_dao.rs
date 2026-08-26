@@ -7,8 +7,10 @@ impl From<&PgRow> for Client {
     fn from(row: &PgRow) -> Self {
         Client {
             id: row.get("id"),
+            client_id: row.get("client_id"),
             secret: row.get("secret"),
             name: row.get("name"),
+            enabled: row.get("enabled"),
             created: row.get("created"),
             updated: row.get("updated"),
         }
@@ -18,7 +20,7 @@ pub async fn db_get_client_by_id<'a>(
     tx: &mut PgTransaction<'a>,
     id: &String,
 ) -> anyhow::Result<Client> {
-    let row = query("select * from prtl_clients where id = $1")
+    let row = query("select * from clients where id = $1")
         .bind(id)
         .fetch_one(&mut **tx)
         .await
@@ -35,7 +37,7 @@ pub async fn db_get_client_by_credentials<'a>(
     secret: &String,
 ) -> anyhow::Result<Client> {
     let row = query(
-        "select * from prtl_clients where id = $1 and secret = $2",
+        "select * from clients where id = $1 and secret = $2",
     )
     .bind(id)
     .bind(secret)

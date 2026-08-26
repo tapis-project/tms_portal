@@ -146,7 +146,7 @@ pub async fn get_access_token_from_code(db_pool:&PgPool, client_id:&String, clie
     let configuration = Configuration::get(db_pool).await?;
     // validate redirect uri
     let _allowed_redirect =
-        db_get_allowed_redirect(&mut tx, &client.id, &redirect_uri).await?;
+        db_get_allowed_redirect(&mut tx, &client.client_id, &redirect_uri).await?;
     // TODO: get time delta fron config (how recently the auth code must have been issued)
     let time_delta = TimeDelta::seconds(30);
 

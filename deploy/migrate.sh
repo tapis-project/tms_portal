@@ -8,6 +8,8 @@ DB_PASSWORD="tms_password"
 DB_HOST="localhost"
 DB_PORT="5432"
 DB_NAME="tms_db"
+TMS_SERVER_GIT_BRANCH="main"
+USE_CACHE=0
 
 function usage() {
   echo "$0 [-p port] [-u user] [-w password] [-d db]"
@@ -27,6 +29,12 @@ function usage() {
   echo 
   echo "     -h --host"
   echo "        Postgres database host"
+  echo 
+  echo "     -b --branch"
+  echo "        TMS Server github repository branch name"
+  echo 
+  echo "     --cached"
+  echo "        Use cached files - this may fail or result in an incomplete db if the files are not present, or not up to date"
   echo 
   exit 1
 }
@@ -62,6 +70,15 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    -b|--branch)
+      TMS_SERVER_GIT_BRANCH="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --cached)
+      USE_CACHE=1
+      shift # past argument
+      ;;
     -*)
       echo "Unknown option $1"
       usage
@@ -72,21 +89,30 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-
-DB_URL=postgres://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
 MIGRATION_DIR=${SCRIPT_DIR}/migrations
-cargo install sqlx-cli
-mkdir -p ${MIGRATION_DIR}
-pushd ${MIGRATION_DIR}
+DB_URL=postgres://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
 
-MIGRATION_FILES=$(http https://api.github.com/repos/tms-trust-project/tms_server/contents/resources/migrations | jq .[].download_url -r)
-for MFILE in ${MIGRATION_FILES} ; do 
+if [ ${USE_CACHE} -eq 0 ] ; then 
+  #install sqlx command line util
+  cargo install sqlx-cli
+
+  # make directory for migration files, and change to that directory
+  mkdir -p ${MIGRATION_DIR}
+  pushd ${MIGRATION_DIR}
+
+  # get the list of migration files (based on branch)
+  MIGRATION_FILES=$(http https://api.github.com/repos/tms-trust-project/tms_server/contents/resources/migrations?ref=${TMS_SERVER_GIT_BRANCH} | jq .[].download_url -r)
+
+  # download each migration file
+  for MFILE in ${MIGRATION_FILES} ; do 
         LOCAL_NAME=$(basename ${MFILE})
         echo downloading ${MFILE} as ${LOCAL_NAME}
         # httpie download, quiet, overwrite by specifying name
         http -dqo ${LOCAL_NAME} ${MFILE}
-done
-popd
+  done
+  popd
+fi
 
+#process the files in the migration directory
 echo dburl = ${DB_URL}
 sqlx migrate run --database-url $DB_URL --source ${MIGRATION_DIR}

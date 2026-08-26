@@ -18,7 +18,7 @@ use tms_lib::utils::jwt_decoder::JwtDecoderBuilder;
 use tms_lib::utils::oauth_utils::generate_nonce;
 use crate::db::resource_provider_account_logins_dao::{db_add_or_update_resource_account_login, db_delete_resource_provider_link, db_get_resource_provider_links_for_identity};
 use crate::obj_model::identity_provider::ResourceProvider;
-use crate::obj_model::resources::{ResourceAccountLink, ResourceAccountLogin};
+use crate::obj_model::resources::{ResourceAccountLink, ResourceProviderLogin};
 use crate::utils::app_error::AppError;
 use crate::utils::jwt_utils::{SecurityContext};
 use crate::utils::state_utils::encode_state;
@@ -71,7 +71,7 @@ pub async fn get_resource_providers(security_context:&SecurityContext, db_pool: 
     Ok(resource_provider_result)
 }
 pub async fn unlink_resource_provider(security_context:&SecurityContext, db_pool: &PgPool,
-                                      resource_provider_link_id: &i64) -> Result<ResourceAccountLogin> {
+                                      resource_provider_link_id: &i64) -> Result<ResourceProviderLogin> {
     let mut tx = db_pool.begin().await?;
     let rps =
         db_delete_resource_provider_link(&mut tx, &security_context.tms_identity, &resource_provider_link_id).await?;

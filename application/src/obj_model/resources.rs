@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct ResourceAccountLogin {
+pub struct ResourceProviderLogin {
     pub id:i32,
     pub tms_identity:String,
-    pub resource_provider_account:String,
-    pub resource_provider_uuid:Option<Uuid>,
+    pub provider_account:String,
+    pub provider_uuid:Option<Uuid>,
     pub last_login:DateTime<Utc>,
     pub enabled:bool,
     pub created:DateTime<Utc>,

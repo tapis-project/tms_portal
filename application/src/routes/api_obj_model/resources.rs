@@ -12,15 +12,15 @@ pub struct ResourceAccountLogin {
 }
 
 
-impl From<obj_model::resources::ResourceAccountLogin> for ResourceAccountLogin {
-    fn from(value: obj_model::resources::ResourceAccountLogin) -> Self {
+impl From<obj_model::resources::ResourceProviderLogin> for ResourceAccountLogin {
+    fn from(value: obj_model::resources::ResourceProviderLogin) -> Self {
         ResourceAccountLogin {
             id: value.id,
             tms_identity: value.tms_identity.clone(),
-            resource_provider_uuid: value.resource_provider_uuid.unwrap().to_string(),
+            resource_provider_uuid: value.provider_uuid.unwrap().to_string(),
             last_login: value.last_login.to_rfc3339(),
             enabled: value.enabled,
-            resource_provider_account: value.resource_provider_account,
+            resource_provider_account: value.provider_account,
         }
     }
 }
