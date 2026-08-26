@@ -87,6 +87,12 @@ export TMS_PORTAL_DB_PORT=<tms_db_port>
 After editing the tms_portal_dev_config.sql template, use it to initialize the db.
 ```
 cat tms_portal_dev_config.sql | docker exec -i tms_portal_postgres psql -U tms tms_db 
+```
+The tms_portal_dev_config.sql file is just an example, so you could also use a different file to initialize the 
+database.  The initial setup will be different for each installation.
+
+## Run
+```
 cargo run
 ```
 Point the browser at http://localhost:8080/
