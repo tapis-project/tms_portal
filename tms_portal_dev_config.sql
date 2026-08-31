@@ -44,9 +44,8 @@ VALUES('<put your state signing kid here>',
 );
 
 -- Add tms client
-INSERT INTO prtl_clients (id, name, secret) 
-        VALUES('tms', 'Tms Service', 'tms');
-
+INSERT INTO clients (client_id, name, secret, enabled) 
+        VALUES('tms', 'Tms Service', 'tms', true);
 -- Add allowed redirects (with and without trailing slash)
 INSERT INTO allowed_redirects (client_id, uri) 
         VALUES('tms', 'http://localhost:8080');
@@ -77,4 +76,12 @@ VALUES
 INSERT INTO configuration (config_name, config_value)
         VALUES ('runtime_config', '{"config_directory":"application/resources/config", "logging_config_file_name":"log4rs.yml"}'::jsonb);
 
+-- Temporary for testing locally
+-- Add tapisauth client for tms-test tenant
+INSERT INTO clients (client_id, name, secret, enabled) 
+        VALUES('3b684a8a-c974-4001-ab57-3f9e5190caf1', 'tapis-tms-test-tenant', '<test client id secret goes here', true);
+
+-- Add allowed redirects for tapis tms-test tenant oauth callback
+INSERT INTO allowed_redirects (uri, client_id)
+        VALUES ('https://linktest.develop.tapis.io/v3/oauth2/extensions/oa2/callback', '3b684a8a-c974-4001-ab57-3f9e5190caf1');
 
