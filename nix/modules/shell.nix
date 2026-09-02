@@ -22,6 +22,7 @@
           pkgs.glibcLocalesUtf8
           pkgs.locale
           pkgs.nodejs_24
+          inputs'.agenix.packages.default
         ];
       };
     };

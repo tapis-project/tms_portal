@@ -59,40 +59,66 @@
     });
   };
   config = {
-    perSystem = { pkgs, config, ... }: {
-      process-compose."postgres-stack" = {
-        imports = [
-          inputs.services-flake.processComposeModules.default
-        ];
-        settings.processes.hello.command = "sleep 1000000";
-        cli.options.port = config.tms-portal.process-compose-server.port;
-        cli.options.no-server = !config.tms-portal.process-compose-server.enable;
-        cli.environment.PC_DISABLE_TUI = true;
-        services.postgres."pg" = { name, ... }: {
-          enable = true;
-          dataDir = "./.data/${name}";
-          port = config.tms-portal.postgres.port;
-          listen_addresses = config.tms-portal.postgres.address;
-          superuser = config.tms-portal.postgres.admin_user;
-          initialDatabases = [
-            { name = config.tms-portal.postgres.database; }
+    perSystem = { pkgs, config, inputs', ... }:
+      let
+        populateScript = inputs'.nix-with-secrets.lib.appWithSecrets {
+          runtimeInputs = with pkgs; [ coreutils openssl ];
+          name = "populate-script";
+          secrets = [
+            "token-signing-key.age"
+            "state-signing-key.age"
+            "globus-client-id.age"
+            "globus-client-secret.age"
+            "tacc-resource-provider-client-id.age"
+            "tacc-resource-provider-client-secret.age"
           ];
-          initialScript = {
-            after = with config.tms-portal.postgres; ''
-              CREATE USER ${user} with encrypted password '${password}';
-              ALTER DATABASE ${database} OWNER TO ${user};
-            '';
+          secretsDir = ./../secrets;
+          identity = "~/.ssh/id_portal";
+          text = ''
+            echo "Secret"
+            ls -l "$SECRETS_DIR"
+            cat "$SECRETS_DIR"/globus-client-id.age
+          '';
+        };
+      in
+      {
+        process-compose."postgres-stack" = {
+          imports = [
+            inputs.services-flake.processComposeModules.default
+          ];
+          settings.processes.hello.command = "sleep 1000000";
+          cli.options.port = config.tms-portal.process-compose-server.port;
+          cli.options.no-server = !config.tms-portal.process-compose-server.enable;
+          cli.environment.PC_DISABLE_TUI = true;
+          services.postgres."pg" = { name, ... }: {
+            enable = true;
+            dataDir = "./.data/${name}";
+            port = config.tms-portal.postgres.port;
+            listen_addresses = config.tms-portal.postgres.address;
+            superuser = config.tms-portal.postgres.admin_user;
+            initialDatabases = [
+              { name = config.tms-portal.postgres.database; }
+            ];
+            initialScript = {
+              after = with config.tms-portal.postgres; ''
+                CREATE USER ${user} with encrypted password '${password}';
+                ALTER DATABASE ${database} OWNER TO ${user};
+              '';
+            };
+          };
+          services.pgadmin."pgadm" = { name, ... }: {
+            dataDir = "./.data/${name}";
+            enable = true;
+            package = pkgs.pgadmin4;
+            port = config.tms-portal.postgres.admin.port;
+            initialEmail = config.tms-portal.postgres.admin.email;
+            initialPassword = config.tms-portal.postgres.admin.password;
+          };
+          settings.processes.populateDb = {
+            command = "${populateScript}/bin/populate-script";
+            depends_on."pg".condition = "process_healthy";
           };
         };
-        services.pgadmin."pgadm" = { name, ... }: {
-          dataDir = "./.data/${name}";
-          enable = true;
-          package = pkgs.pgadmin4;
-          port = config.tms-portal.postgres.admin.port;
-          initialEmail = config.tms-portal.postgres.admin.email;
-          initialPassword = config.tms-portal.postgres.admin.password;
-        };
       };
-    };
   };
 }

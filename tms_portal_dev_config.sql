@@ -5,8 +5,9 @@ INSERT INTO identity_providers
                 scope, provider_type, supports_login, 
                 supports_resources)
 VALUES 
-        ('globus_idp', 'Globus IDP', '<put your globus client id here>',
-                '<put your globus client secret here>',
+        ('globus_idp', 'Globus IDP', 
+                '@globus-client-id.age@',
+                '@globus-client-secret.age@',
                 'https://auth.globus.org/v2/oauth2/authorize', 
                 'https://auth.globus.org/v2/oauth2/token', 
                 'https://auth.globus.org/jwk.json', '',
@@ -15,32 +16,26 @@ VALUES
 -- Add the tacc identity provider (as resource provider)
 INSERT INTO identity_providers (id, name, client_id, client_secret, identity_redirect_url, 
 oauth2_token_url, oauth2_jwks_url, oidc_user_info_url, scope, provider_type, supports_login, 
-supports_resources) VALUES ('tacc', 'TACC Resource Provider', '<put your tacc resource provider client id here>',
-'<put your tacc resource provider client secret here>',
-'https://tacc.tapis.io/v3/oauth2/authorize', 'https://tacc.tapis.io/v3/oauth2/tokens', 
+supports_resources) VALUES ('tacc', 'TACC Resource Provider', 
+'@tacc-resource-provider-client-id.age@',
+'@tacc-resource-provider-client-secret.age@',
+'https://tacc.tapis.io/v3/oauth2/authorize', 
+'https://tacc.tapis.io/v3/oauth2/tokens', 
 'https://tacc.tapis.io/v3/tokens/.well-known/jwks.json', '',
 'openid profile email', 'tacc_tapis', false, true);
 
 -- token signing key - tms
 INSERT INTO keys (kid, jwt_public_key, jwt_private_key) 
-VALUES('<put your token signing kid here>', 
-'-----BEGIN PUBLIC KEY-----
-<put your token signing public key here>
------END PUBLIC KEY-----', 
-'-----BEGIN PRIVATE KEY-----
-<put your token signing private key here>
------END PRIVATE KEY-----'
+VALUES('@token-kid@', 
+'@token-signing-public-key@', 
+'@token-signing-key.age@'
 );
 
 -- state signing key - tms
 INSERT INTO keys (kid, jwt_public_key, jwt_private_key) 
-VALUES('<put your state signing kid here>',
-'-----BEGIN PUBLIC KEY-----
-<put your state signing public key here>
------END PUBLIC KEY-----',
-'-----BEGIN PRIVATE KEY-----
-<put your state signing private key here>
------END PRIVATE KEY-----'
+VALUES('@state-kid@',
+'@state-signing-public-key@',
+'@state-signing-key.age@'
 );
 
 -- Add tms client
@@ -60,9 +55,10 @@ INSERT INTO allowed_redirects (uri, client_id)
 
 -- Add configuration settings
 INSERT INTO configuration (config_name, config_value) 
-        VALUES ('state_key', '{"kid":"<put your state signing kid here>"}'::jsonb);
+        VALUES ('state_key', '{"kid":"@state-kid@"}'::jsonb);
 INSERT INTO configuration (config_name, config_value) 
-        VALUES ('jwt_config', '{"default_expiration_minutes":"60", "signing_key_kid":"<put your token signing kid here>"}'::jsonb);
+        VALUES ('jwt_config', 
+        '{"default_expiration_minutes":"60", "signing_key_kid":"@signing-kid@"}'::jsonb);
 INSERT INTO configuration (config_name, config_value) 
         VALUES ('oauth_config', '{"login_oauth_provider":"globus_idp"}'::jsonb);
 INSERT INTO configuration (config_name, config_value) 

@@ -14,6 +14,8 @@
     flake-parts-website.url = "github:hercules-ci/flake.parts-website";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     services-flake.url = "github:juspay/services-flake";
+    agenix.url = "github:ryantm/agenix";
+    nix-with-secrets.url = "github:provables/nix-with-secrets";
   };
 
   outputs = inputs@{ simple-flake, ... }:
