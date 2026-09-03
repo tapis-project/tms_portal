@@ -7,3 +7,4 @@ pub mod login;
 pub mod keys;
 pub mod resources;
 pub(crate) mod oauth;
+pub mod tms_identity;

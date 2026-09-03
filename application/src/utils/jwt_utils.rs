@@ -97,7 +97,7 @@ impl TmsTokenClaims {
     }
 
     pub fn is_tms_client(&self) -> Result<bool> {
-        if let (Some(client_id)) = self.aud.as_str() {
+        if let Some(client_id) = self.aud.as_str() {
             Ok(CLIENT_ID_TMS == client_id)
         } else {
             // I'm not sure why this might happen, but it doesn't seem like a fatal error either,so
@@ -115,7 +115,7 @@ async fn get_token_claims(db_pool: &PgPool, token: &String) -> Result<TmsTokenCl
 
     let mut tx = db_pool.begin().await?;
     let issued_token = db_get_token(&mut tx, token).await?;
-    if(issued_token.is_revoked() || issued_token.is_expired()) {
+    if issued_token.is_revoked() || issued_token.is_expired() {
         return Err(Unauthorized("Token is expired or revoked".to_string()).into());
     }
     let key = match token_header.kid {
@@ -161,7 +161,7 @@ where {
             let jwt_claims = get_token_claims(&app_state.db_pool, &bearer).await?;
             let tms_identity = jwt_claims.get_sub()?;
             info!("Request uri: {} TMS Identity: {}", req_parts.uri, tms_identity);
-            if(enabled!(Level::TRACE)) {
+            if enabled!(Level::TRACE) {
                 req_parts.headers.iter().for_each(|(header_name, header_value)| {
                     trace!("Begin Headers");
                     trace!("Header: {} Value: {:?}", header_name, header_value);
@@ -169,7 +169,7 @@ where {
                 })
             }
             let is_tms_client = jwt_claims.is_tms_client()?;
-            if(is_tms_client) {
+            if is_tms_client {
                 trace!("TMS Client connected");
             }
             Ok(JwtValidator(SecurityContext {

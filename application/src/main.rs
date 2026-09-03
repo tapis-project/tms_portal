@@ -23,8 +23,8 @@ use log::error;
 use sqlx::PgPool;
 use tokio::spawn;
 use tower_http::services::ServeDir;
-use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::{info_span, instrument, Level};
+use tower_http::trace::{TraceLayer};
+use tracing::{instrument};
 use url::Url;
 use uuid::Uuid;
 use crate::db::issued_tokens_dao::db_cleanup_tokens;
@@ -83,7 +83,7 @@ async fn main() {
                         // expired an hour ago
                         let expires_before = Utc::now() - TimeDelta::hours(1);
                         match db_cleanup_tokens(&mut tx, &expires_before).await {
-                            Ok(count) => {
+                            Ok(_) => {
                                 tx.commit().await.context("Unable to commit transaction for token cleanup")
                             }
                             Err(error) => Err(error)

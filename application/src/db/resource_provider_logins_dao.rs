@@ -3,7 +3,6 @@ use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use sqlx::{query, Error, PgTransaction, Row};
 use sqlx::postgres::PgRow;
-use uuid::Uuid;
 use tms_lib::utils::service_error::ServiceError::BadRequest;
 use crate::obj_model::resources::{ResourceAccountLink, ResourceProviderLogin};
 
@@ -12,8 +11,8 @@ impl From<&PgRow> for ResourceProviderLogin {
         ResourceProviderLogin {
             id:row.get("id"),
             tms_identity:row.get("tms_identity"),
-            provider_account:row.get("provider_account"),
-            provider_uuid:row.get("provider_uuid"),
+            rp_account:row.get("rp_account"),
+            rp_id:row.get("rp_id"),
             last_login:row.get("last_login"),
             enabled:row.get("enabled"),
             created:row.get("created"),
@@ -26,10 +25,9 @@ impl From<&PgRow> for ResourceAccountLink {
         ResourceAccountLink {
             id:row.get("id"),
             tms_identity:row.get("tms_identity"),
-            resource_provider_account:row.get("provider_account"),
-            resource_provider_uuid:row.get("provider_uuid"),
-            resource_provider_id:row.get("provider_id"),
-            resource_provider_name:row.get("provider_name"),
+            rp_account:row.get("rp_account"),
+            rp_id:row.get("rp_id"),
+            rp_name:row.get("rp_name"),
             last_login:row.get("last_login"),
             enabled:row.get("enabled"),
             created:row.get("created"),
@@ -41,13 +39,13 @@ impl From<&PgRow> for ResourceAccountLink {
 
 pub async fn db_add_or_update_resource_account_login<'a>(
     tx: &mut PgTransaction<'a>, tms_identity: String, resource_provider_account: String,
-    resource_provider_uuid: Option<Uuid>, last_login: DateTime<Utc>, enabled:bool,
+    resource_provider_id: String, last_login: DateTime<Utc>, enabled:bool,
 ) -> anyhow::Result<ResourceProviderLogin> {
     let ra_login = ResourceProviderLogin {
         id:0,
         tms_identity: tms_identity,
-        provider_account: resource_provider_account,
-        provider_uuid: resource_provider_uuid,
+        rp_account: resource_provider_account,
+        rp_id: resource_provider_id,
         last_login,
         enabled,
         created:Utc::now(),
@@ -56,15 +54,15 @@ pub async fn db_add_or_update_resource_account_login<'a>(
 
     match query(
         "INSERT INTO resource_provider_logins
-            (tms_identity, provider_account, provider_uuid,
+            (tms_identity, rp_account, rp_id,
              enabled, last_login) VALUES ($1, $2, $3, $4, $5)
-                      ON CONFLICT (tms_identity, provider_uuid, provider_account)
+                      ON CONFLICT (tms_identity, rp_id, rp_account)
                           DO UPDATE SET last_login=excluded.last_login
              returning *",
     )
     .bind(ra_login.tms_identity)
-    .bind(ra_login.provider_account)
-    .bind(ra_login.provider_uuid)
+    .bind(ra_login.rp_account)
+    .bind(ra_login.rp_id)
     .bind(ra_login.enabled)
     .bind(ra_login.last_login)
     .bind(Utc::now())
@@ -94,11 +92,11 @@ pub async fn db_get_resource_provider_links_for_identity<'a>(
 ) -> anyhow::Result<HashSet<ResourceAccountLink>> {
     let row_result = match query(
         // this select needs all of the fields spelled out because of the join and naming, etc
-       "select rpal.id, rpal.tms_identity, rpal.provider_account, rpal.last_login, rpal.enabled,
-       rpal.created, rpal.updated, ip.id as provider_id, ip.name as provider_name,
-       ip.uuid as provider_uuid from resource_provider_logins as rpal
-       INNER JOIN identity_providers AS ip ON ip.uuid = rpal.provider_uuid
-       WHERE tms_identity=$1 AND ip.supports_resources = true",
+        "select rpal.id, rpal.tms_identity, rpal.rp_account, rpal.last_login, rpal.enabled,
+        rpal.created, rpal.updated, ip.id as rp_id, ip.name as rp_name
+        from resource_provider_logins as rpal
+        INNER JOIN identity_providers AS ip ON ip.id = rpal.rp_id
+        WHERE tms_identity=$1 AND ip.supports_resources = true",
     ).bind(tms_identity)
         .fetch_all(&mut **tx)
         .await {

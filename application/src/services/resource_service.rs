@@ -197,12 +197,12 @@ pub async fn get_resource_provider_token(
 
     let tms_identity = tms_identity.to_string();
     let resource_provider_account = subject;
-    let resource_provider_uuid = rp.uuid;
+    let resource_provider_id = rp.id;
     let last_login = Utc::now();
     let enabled = false;
 
     db_add_or_update_resource_account_login(&mut tx, tms_identity, resource_provider_account.to_string(),
-                                            resource_provider_uuid, last_login, enabled).await?;
+                                            resource_provider_id, last_login, enabled).await?;
     tx.commit().await?;
 
     Ok(())

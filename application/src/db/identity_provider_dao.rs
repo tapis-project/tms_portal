@@ -4,7 +4,6 @@ use sqlx::postgres::PgRow;
 use sqlx::{query, Error, PgTransaction, Row};
 use std::collections::HashSet;
 use std::str::FromStr;
-use uuid::Uuid;
 use crate::obj_model::identity_provider::{IdentityProvider, IdentityProviderType};
 /*
 Identity providers can be for either resources or for logins.  There's a boolean for
@@ -18,7 +17,6 @@ impl TryFrom<&PgRow> for IdentityProvider {
     fn try_from(row: &PgRow) -> anyhow::Result<Self, Self::Error> {
         let provider: &str = row.get("provider_type");
         Ok(IdentityProvider {
-            uuid: Some(row.get("uuid")),
             id: row.get("id"),
             name: row.get("name"),
             client_id: row.get("client_id"),
@@ -44,7 +42,7 @@ pub async fn db_get_login_providers<'a>(
     tx: &mut PgTransaction<'a>,
 ) -> Result<HashSet<IdentityProvider>> {
     let idp_query_result = query(
-        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
+        "select id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
                      oauth2_public_key, scope, provider_type,
                      supports_login, supports_resources, created, updated
@@ -68,7 +66,7 @@ pub async fn db_get_login_provider_by_id<'a>(
     id: &String,
 ) -> Result<IdentityProvider> {
     let row = query(
-        "select uuid, id, name, client_id, client_secret, identity_redirect_url,
+        "select id, name, client_id, client_secret, identity_redirect_url,
                      oauth2_token_url, oauth2_jwks_url, oidc_user_info_url,
                      oauth2_public_key, scope, provider_type,
                      supports_login, supports_resources, created, updated
@@ -94,7 +92,7 @@ pub async fn db_get_resource_providers<'a>(
             query(
                 "select ip.* from identity_providers as ip
                       INNER JOIN resource_provider_account_logins
-                      AS rpal ON ip.uuid = rpal.resource_provider_uuid where supports_resources = true
+                      AS rpal ON ip.id = rpal.rp_id where supports_resources = true
                       and tms_identity = $1",
             ).bind(tms_identity)
                 .fetch_all(&mut **tx)
@@ -135,23 +133,6 @@ pub async fn db_get_resource_provider_by_id<'a>(
         Err(error) => Err(anyhow!(error)),
     }
 }
-pub async fn db_get_resource_provider_by_uuid<'a>(
-    tx: &mut PgTransaction<'a>,
-    provider_uuid: &Uuid,
-) -> Result<IdentityProvider> {
-    match query(
-        "select * from identity_providers
-                     where uuid = $1 and supports_resources = true",
-    )
-        .bind(provider_uuid)
-        .fetch_one(&mut **tx)
-        .await {
-        Ok(row) => Ok(IdentityProvider::try_from(&row)?),
-        Err(Error::RowNotFound) => Err(BadRequest("Resource provider not found".to_string()).into()),
-        Err(error) => Err(anyhow!(error)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;

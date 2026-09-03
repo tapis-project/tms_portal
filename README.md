@@ -1,8 +1,8 @@
 # Documentation
 |  |  |
 | :---         | :--- |
-| API docs     | https://tapis-project.github.io/tms-live-docs    |
-| docs source  | https://github.com/tapis-project/tms-live-docs   |
+| API docs     | https://tms-trust-project.github.io/tms-live-docs |
+| docs source  | https://github.com/tapis-project/tms-live-docs    |
 
 
 # Build Instructions

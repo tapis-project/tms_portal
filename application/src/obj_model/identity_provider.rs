@@ -2,12 +2,10 @@ use std::fmt::Display;
 use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use tms_lib::utils::service_error::ServiceError;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct IdentityProvider {
-    pub uuid: Option<Uuid>,
     pub id: String,
     pub name: String,
     pub client_id: String,

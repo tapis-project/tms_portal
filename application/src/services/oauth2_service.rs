@@ -16,7 +16,6 @@ use crate::db::auth_code_data_dao::{db_delete_auth_code_data, db_insert_auth_cod
 use crate::db::client_dao::{db_get_client_by_credentials,};
 use crate::db::config_dao::{db_get_http_config};
 use crate::db::identity_provider_dao::{db_get_login_provider_by_id};
-use crate::db::issued_tokens_dao::db_insert_token;
 use crate::obj_model::identity_provider::IdentityProvider;
 use crate::services::login_service::AuthorizationCodeResponse;
 use crate::utils::configuration::Configuration;

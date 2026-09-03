@@ -5,8 +5,8 @@ use crate::obj_model;
 pub struct ResourceAccountLogin {
     pub id: i32,
     pub tms_identity: String,
-    pub resource_provider_uuid: String,
-    pub resource_provider_account: String,
+    pub rp_id: String,
+    pub rp_account: String,
     pub last_login: String,
     pub enabled: bool,
 }
@@ -17,10 +17,10 @@ impl From<obj_model::resources::ResourceProviderLogin> for ResourceAccountLogin 
         ResourceAccountLogin {
             id: value.id,
             tms_identity: value.tms_identity.clone(),
-            resource_provider_uuid: value.provider_uuid.unwrap().to_string(),
+            rp_id: value.rp_id.to_string(),
             last_login: value.last_login.to_rfc3339(),
             enabled: value.enabled,
-            resource_provider_account: value.provider_account,
+            rp_account: value.rp_account,
         }
     }
 }
@@ -28,9 +28,8 @@ impl From<obj_model::resources::ResourceProviderLogin> for ResourceAccountLogin 
 pub struct ResourceAccountLink {
     pub id:i32,
     pub tms_identity:String,
-    pub resource_provider_account:String,
-    pub resource_provider_uuid:String,
-    pub resource_provider_id:String,
+    pub rp_account:String,
+    pub rp_id:String,
     pub resource_provider_name:String,
     pub last_login:String,
     pub enabled:bool,
@@ -40,12 +39,11 @@ impl From<&obj_model::resources::ResourceAccountLink> for ResourceAccountLink {
         ResourceAccountLink {
             id: value.id,
             tms_identity: value.tms_identity.clone(),
-            resource_provider_name: value.resource_provider_name.clone(),
-            resource_provider_id: value.resource_provider_id.clone(),
-            resource_provider_uuid: value.resource_provider_uuid.to_string(),
+            resource_provider_name: value.rp_name.clone(),
+            rp_id: value.rp_id.clone(),
             last_login: value.last_login.to_rfc3339(),
             enabled: value.enabled,
-            resource_provider_account: value.resource_provider_account.clone(),
+            rp_account: value.rp_account.clone(),
         }
     }
 }
