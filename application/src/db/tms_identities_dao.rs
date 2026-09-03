@@ -1,7 +1,6 @@
 use tms_lib::utils::service_error::ServiceError::NotFound;
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
-use crate::obj_model::client::Client;
 use crate::obj_model::tms_identity::TmsIdentity;
 
 impl From<&PgRow> for TmsIdentity {

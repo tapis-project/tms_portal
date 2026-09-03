@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use anyhow::Context;
+use chrono::{DateTime, Duration, Utc};
 use log::trace;
 use serde::{Deserialize};
 use url::Url;
@@ -23,6 +25,30 @@ pub struct RuntimeConfig {
     pub config_directory: String,
     pub logging_config_file_name: String,
     // TODO:  put db host and db port in here?
+}
+#[derive(Debug, Clone, Deserialize)]
+pub struct DelegationPolicyConfig {
+    pub delegation_expiration: String,
+    pub delegation_max_mins_since_login: i64,
+}
+impl DelegationPolicyConfig {
+    pub fn get_delegation_expiration(&self) -> anyhow::Result<DateTime<Utc>> {
+        match DateTime::parse_from_rfc3339(&self.delegation_expiration) {
+            Ok(date_time) => Ok(date_time.with_timezone(&Utc)),
+            Err(error) => {
+               Err(anyhow::anyhow!(error)).context("Parsing delegation expiration time string")
+            }
+        }
+    }
+}
+impl Default for DelegationPolicyConfig {
+    fn default() -> Self {
+        let expiration_date_time = Utc::now() + Duration::days(30);
+        DelegationPolicyConfig {
+            delegation_expiration: expiration_date_time.to_rfc3339(),
+            delegation_max_mins_since_login: Duration::days(1).num_minutes(),
+        }
+    }
 }
 #[derive(Debug, Clone, Deserialize)]
 pub struct HttpConfig {

@@ -43,6 +43,7 @@ pub struct SecurityContext {
     pub tms_identity: String,
     // the original token
     pub token: String,
+    pub client_id: String,
     pub is_tms_client: bool,
 }
 pub struct JwtValidator(pub SecurityContext);
@@ -80,6 +81,9 @@ impl TmsTokenClaims {
     }
     pub fn get_sub(&self) -> Result<String> {
         get_string_from_value(&self.sub)
+    }
+    pub fn get_aud(&self) -> Result<String> {
+        get_string_from_value(&self.aud)
     }
 
     pub fn get_expires_at(&self) -> Result<String> {
@@ -168,6 +172,7 @@ where {
                     trace!("End Headers");
                 })
             }
+            let client_id = jwt_claims.get_aud()?;
             let is_tms_client = jwt_claims.is_tms_client()?;
             if is_tms_client {
                 trace!("TMS Client connected");
@@ -176,6 +181,7 @@ where {
                 tms_identity: tms_identity.to_string(),
                 token: bearer.to_string(),
                 is_tms_client,
+                client_id,
                 // we can add more to this if we need to
 //                tms_token_claims: jwt_claims,
             }))

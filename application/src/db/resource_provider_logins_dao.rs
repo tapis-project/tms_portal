@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use sqlx::{query, Error, PgTransaction, Row};
 use sqlx::postgres::PgRow;
-use tms_lib::utils::service_error::ServiceError::BadRequest;
+use tms_lib::utils::service_error::ServiceError::{BadRequest};
 use crate::obj_model::resources::{ResourceAccountLink, ResourceProviderLogin};
 
 impl From<&PgRow> for ResourceProviderLogin {
@@ -38,38 +38,44 @@ impl From<&PgRow> for ResourceAccountLink {
 
 
 pub async fn db_add_or_update_resource_account_login<'a>(
-    tx: &mut PgTransaction<'a>, tms_identity: String, resource_provider_account: String,
-    resource_provider_id: String, last_login: DateTime<Utc>, enabled:bool,
+    tx: &mut PgTransaction<'a>, tms_identity: String, rp_account: String,
+    rp_id: String, last_login: DateTime<Utc>,
 ) -> anyhow::Result<ResourceProviderLogin> {
-    let ra_login = ResourceProviderLogin {
-        id:0,
-        tms_identity: tms_identity,
-        rp_account: resource_provider_account,
-        rp_id: resource_provider_id,
-        last_login,
-        enabled,
-        created:Utc::now(),
-        updated:Utc::now(),
-    };
-
+    // login - insert implies enabled, but update will not change the enabled flag
     match query(
         "INSERT INTO resource_provider_logins
             (tms_identity, rp_account, rp_id,
-             enabled, last_login) VALUES ($1, $2, $3, $4, $5)
+             last_login, enabled) VALUES ($1, $2, $3, $4, true)
                       ON CONFLICT (tms_identity, rp_id, rp_account)
-                          DO UPDATE SET last_login=excluded.last_login
+                          DO UPDATE SET last_login=excluded.last_login, updated=now()
              returning *",
     )
-    .bind(ra_login.tms_identity)
-    .bind(ra_login.rp_account)
-    .bind(ra_login.rp_id)
-    .bind(ra_login.enabled)
-    .bind(ra_login.last_login)
-    .bind(Utc::now())
+    .bind(tms_identity)
+    .bind(rp_account)
+    .bind(rp_id)
+    .bind(last_login)
     .fetch_one(&mut **tx)
     .await {
         Ok(row) => Ok(ResourceProviderLogin::from(&row)),
         Err(error) => Err(anyhow!(error)),
+    }
+}
+pub async fn db_get_resource_provider_login<'a>(
+    tx: &mut PgTransaction<'a>, tms_identity: &String, rp_account: &String,
+    rp_id: &String, last_login: DateTime<Utc>,
+) -> anyhow::Result<Option<ResourceProviderLogin>> {
+    let row = query("SELECT * FROM resource_provider_logins WHERE tms_identity = $1 and rp_account=$2 and rp_id=$3 and last_login >= $4 and enabled is true")
+        .bind(tms_identity)
+        .bind(rp_account)
+        .bind(rp_id)
+        .bind(last_login)
+        .fetch_optional(&mut **tx)
+        .await.map_err( |error| match error {
+            _ => anyhow::anyhow!(error),
+        })?;
+    match row {
+        Some(row) => Ok(Some(ResourceProviderLogin::from(&row))),
+        None => Ok(None),
     }
 }
 pub async fn db_delete_resource_provider_link<'a>(

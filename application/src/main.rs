@@ -10,7 +10,7 @@ mod obj_model;
 use anyhow::Context;
 use axum::body::Body;
 use crate::config::{init_db, init_logging};
-use crate::routes::{login, oauth, resource, well_known};
+use crate::routes::{delegation, login, oauth, resource, well_known};
 //use axum_extra::extract::cookie::Key;
 use tms_lib::utils::service_error::ServiceError::{MethodNotAllowed, NotFound};
 use axum::handler::HandlerWithoutStateExt;
@@ -113,6 +113,7 @@ async fn main() {
         .merge(login::router().await)
         .merge(resource::router().await)
         .merge(oauth::router().await)
+        .merge(delegation::router().await)
         .layer(middleware::from_fn( | request: Request<Body>, next: Next | async move
             {
                 let request_id = Uuid::new_v4().to_string();

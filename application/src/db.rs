@@ -7,3 +7,4 @@ pub mod resource_provider_logins_dao;
 pub mod auth_code_data_dao;
 pub mod issued_tokens_dao;
 pub mod tms_identities_dao;
+pub mod delegations_dao;

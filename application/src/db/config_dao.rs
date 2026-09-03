@@ -1,13 +1,14 @@
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use sqlx::postgres::PgRow;
 use sqlx::{query, PgTransaction, Row};
-use crate::obj_model::configuration::{HttpConfig, JwtConfig, OAuthConfig, RuntimeConfig, StateKey};
+use crate::obj_model::configuration::{DelegationPolicyConfig, HttpConfig, JwtConfig, OAuthConfig, RuntimeConfig, StateKey};
 
 const CONFIG_NAME_STATE_KEY: &str = "state_key";
 const CONFIG_NAME_HTTP_CONFIG: &str = "http_config";
 const CONFIG_NAME_OAUTH_CONFIG: &str = "oauth_config";
 const CONFIG_NAME_JWT_CONFIG: &str = "jwt_config";
 const CONFIG_NAME_RUNTIME_CONFIG: &str = "runtime_config";
+const CONFIG_NAME_DELEGATION_POLICY_CONFIG: &str = "delegation_policy_config";
 impl TryFrom<&PgRow> for StateKey {
     type Error = Error;
 
@@ -48,6 +49,13 @@ impl TryFrom<&PgRow> for HttpConfig {
     }
 }
 
+impl TryFrom<&PgRow> for DelegationPolicyConfig {
+    type Error = Error;
+
+    fn try_from(row: &PgRow) -> Result<Self, Self::Error> {
+        Ok(serde_json::from_value(row.get("config_value"))?)
+    }
+}
 pub async fn db_get_state_key_id<'a>(tx: &mut PgTransaction<'a>) -> anyhow::Result<StateKey> {
     let row = query("select config_value from configuration where config_name = $1")
         .bind(CONFIG_NAME_STATE_KEY)
@@ -85,4 +93,14 @@ pub async fn db_get_runtime_config(tx: &mut PgTransaction<'_>) -> anyhow::Result
         .fetch_one(&mut **tx)
         .await?;
     RuntimeConfig::try_from(&row)
+}
+pub async fn db_get_delegation_policy_config(tx: &mut PgTransaction<'_>) -> anyhow::Result<DelegationPolicyConfig> {
+    match query("select config_value from configuration where config_name = $1")
+        .bind(CONFIG_NAME_DELEGATION_POLICY_CONFIG)
+        .fetch_one(&mut **tx)
+        .await {
+        Ok(result) => DelegationPolicyConfig::try_from(&result),
+        Err(sqlx::Error::RowNotFound) => Ok(DelegationPolicyConfig::default()),
+        Err(error) => Err(anyhow!(error)),
+    }
 }
