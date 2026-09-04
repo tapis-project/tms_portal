@@ -320,6 +320,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TmsErrorResponse'
+  "/delegations/tokens":
+    post:
+      tags:
+        - Delegations
+      summary: addDelegation
+      security:
+        - Bearer: [ ]
+      description: Add delegation for resource from a resource provider
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DelegationRequest'
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DelegationResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TmsErrorResponse'
 
 # ------------------------------------------------------------------------------
 # --- Components ---------------------------------------------------------------
@@ -510,7 +536,8 @@ components:
         expires_at:
           type: string
         expires_in:
-          type: i64,
+          type: integer
+          format: int64
         id_token:
           type: string
         jti:
@@ -533,8 +560,41 @@ components:
           enum:
             - authorization_code
         redirect_uri:
-          type: string,
+          type: string
         code:
           type: string
         refresh_token:
+          type: string
+
+    DelegationRequest:
+      properties:
+        resource_provider_id:
+          type: string,
+        resource_provider_account:
+          type: string,
+
+    DelegationResponse:
+      type: object
+      properties:
+        access_token:
+          $ref: '#/components/schemas/Delegation'
+
+    Delegation:
+      properties:
+        id:
+          type: integer
+          format: int32
+        client_id:
+          type: string
+        rp_account:
+          type: string
+        expires_at:
+          type: string
+        created:
+          type: string
+        updated:
+          type: string
+        tms_identity:
+          type: string
+        rp_id:
           type: string
